@@ -1,0 +1,3 @@
+	total IBR	Predicted PBRs	has components	datanode	namenode	hdfs-client	others
+HDFS-invalid	800	99	54	14	17	9	
+Hbase-invalid							

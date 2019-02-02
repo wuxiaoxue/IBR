@@ -1,0 +1,17 @@
+"condition: invalid, won't fix, can not reproduce, not a problem, not a bug",,,,
+,,,,
+,#total,#invalid,% invalid,#Invalid Remain
+HDFS,13500,1206,8.933333333,1135
+Hbase,21672,2488,11.48025102,2365
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+HBASE-5958,,,,

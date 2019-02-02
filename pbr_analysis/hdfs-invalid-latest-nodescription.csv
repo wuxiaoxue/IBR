@@ -1,0 +1,1136 @@
+0	Issue key	Component/s	Component/s	Component/s	Component/s
+0	HDFS-7983				
+0	HDFS-9031				
+0	HDFS-9464	hdfs-client			
+0	HDFS-9465	hdfs-client			
+0	HDFS-10398				
+0	HDFS-9030				
+0	HDFS-9352				
+0	HDFS-1103	datanode			
+0	HDFS-7114	namenode			
+0	HDFS-7053	ha	namenode		
+0	HDFS-6241				
+0	HDFS-6242				
+0	HDFS-4940				
+0	HDFS-3983	security			
+0	HDFS-4849	namenode			
+0	HDFS-4907	datanode			
+0	HDFS-2823	ha	namenode		
+0	HDFS-4630	datanode	namenode		
+0	HDFS-1469	namenode			
+0	HDFS-2583				
+0	HDFS-1253				
+0	HDFS-2244				
+0	HDFS-1666	contrib/hdfsproxy			
+0	HDFS-749				
+1	HDFS-1376				
+0	HDFS-834				
+0	HDFS-833				
+0	HDFS-743	namenode			
+0	HDFS-1288	scripts			
+0	HDFS-1002				
+0	HDFS-784				
+0	HDFS-7231				
+0	HDFS-13737				
+0	HDFS-7913				
+0	HDFS-12970	hdfs			
+0	HDFS-12923	erasure-coding			
+0	HDFS-12918	hdfs			
+0	HDFS-12715	auto-failover			
+0	HDFS-12442	webhdfs			
+0	HDFS-9126	namenode			
+0	HDFS-12098	datanode	ozone	scm	
+1	HDFS-12272	block placement			
+0	HDFS-9045				
+0	HDFS-3153				
+0	HDFS-4368				
+0	HDFS-10340	datanode			
+0	HDFS-10563	namenode			
+0	HDFS-4539	security			
+0	HDFS-8708				
+0	HDFS-2288	datanode			
+0	HDFS-2433	datanode	namenode	test	
+0	HDFS-8474	build	libhdfs		
+1	HDFS-8315				
+0	HDFS-1262	hdfs-client	namenode		
+0	HDFS-60	datanode			
+0	HDFS-3509				
+0	HDFS-5850				
+1	HDFS-2984	benchmarks			
+0	HDFS-3771	namenode			
+0	HDFS-4457	webhdfs			
+0	HDFS-4425	namenode			
+0	HDFS-2674				
+1	HDFS-74				
+0	HDFS-63				
+0	HDFS-183				
+0	HDFS-191				
+0	HDFS-329				
+1	HDFS-162				
+0	HDFS-2600	contrib/raid			
+0	HDFS-2326				
+1	HDFS-2262	datanode			
+0	HDFS-768	build			
+0	HDFS-1401	hdfs-client			
+1	HDFS-40				
+0	HDFS-14159	hdfs			
+0	HDFS-10369	fs			
+0	HDFS-14100				
+0	HDFS-13084				
+0	HDFS-3455	documentation			
+0	HDFS-11255	httpfs			
+0	HDFS-14031	block placement			
+0	HDFS-13365				
+0	HDFS-7307				
+0	HDFS-7777				
+0	HDFS-7850				
+0	HDFS-7904	nfs			
+0	HDFS-8251				
+0	HDFS-9055	webhdfs			
+0	HDFS-9056	webhdfs			
+0	HDFS-9058	webhdfs			
+0	HDFS-9061	webhdfs			
+0	HDFS-9778	erasure-coding			
+0	HDFS-10509	build	documentation		
+1	HDFS-13672				
+0	HDFS-13031	hdfs			
+0	HDFS-13803				
+1	HDFS-13764	documentation			
+0	HDFS-13751	hdfs			
+0	HDFS-10357	ozone			
+0	HDFS-11139	ozone			
+0	HDFS-13595	ha	namenode		
+0	HDFS-5123	ha			
+0	HDFS-13430				
+0	HDFS-6589	hdfs-client			
+0	HDFS-13501				
+0	HDFS-11515	namenode	shell		
+0	HDFS-13354				
+1	HDFS-3653	namenode			
+0	HDFS-3069	namenode			
+0	HDFS-5058	qjm			
+0	HDFS-12707				
+0	HDFS-10205	hdfs-client			
+0	HDFS-13397	hdfs			
+0	HDFS-7304				
+0	HDFS-10388	fs			
+0	HDFS-6308				
+0	HDFS-12260				
+0	HDFS-12928				
+0	HDFS-6132				
+1	HDFS-13169				
+0	HDFS-10799	namenode			
+0	HDFS-12921	erasure-coding			
+0	HDFS-4411	build			
+0	HDFS-4262	datanode			
+0	HDFS-4312				
+0	HDFS-5012				
+0	HDFS-3821	namenode			
+0	HDFS-9808				
+1	HDFS-11125	datanode	namenode		
+0	HDFS-4796				
+0	HDFS-5831				
+1	HDFS-12464	HDFS-7240			
+0	HDFS-11924	security			
+1	HDFS-12294	hdfs			
+0	HDFS-12295	hdfs	namenode		
+0	HDFS-8295				
+0	HDFS-9604				
+0	HDFS-9386	erasure-coding			
+0	HDFS-12202	hdfs	hdfs-client		
+0	HDFS-11459				
+0	HDFS-9590				
+0	HDFS-11944	encryption	test		
+0	HDFS-11812				
+0	HDFS-7239				
+0	HDFS-11731	balancer & mover			
+0	HDFS-11872	ozone			
+1	HDFS-11819				
+1	HDFS-11820	hdfs			
+0	HDFS-361				
+0	HDFS-10459				
+0	HDFS-11284	datanode	namenode		
+0	HDFS-594	hdfs-client			
+0	HDFS-11501				
+0	HDFS-5779				
+0	HDFS-11367	hdfs-client			
+0	HDFS-8796	namenode			
+0	HDFS-11297	erasure-coding			
+0	HDFS-8519				
+0	HDFS-8518				
+0	HDFS-11245	hdfs			
+0	HDFS-7958	namenode			
+1	HDFS-11179	namenode			
+0	HDFS-6262	namenode			
+0	HDFS-2569	datanode			
+1	HDFS-11173				
+0	HDFS-5692	hdfs-client			
+0	HDFS-4483				
+0	HDFS-10950	fs	test		
+0	HDFS-11017	fs			
+0	HDFS-4360	contrib/raid			
+0	HDFS-3554	contrib/raid	test		
+0	HDFS-8041				
+0	HDFS-3544	contrib/raid			
+0	HDFS-600	contrib/raid			
+0	HDFS-3562				
+0	HDFS-3908	namenode			
+0	HDFS-6277				
+0	HDFS-10777	datanode			
+1	HDFS-10853				
+0	HDFS-10708	hdfs-client			
+0	HDFS-10574	webhdfs			
+0	HDFS-9632	hdfs-client			
+1	HDFS-9908	datanode			
+0	HDFS-10767				
+1	HDFS-6983				
+0	HDFS-10669				
+1	HDFS-9770				
+0	HDFS-4311				
+0	HDFS-9326	hdfs-client			
+0	HDFS-10407	namenode			
+0	HDFS-10504	hdfs-client			
+0	HDFS-9564	balancer & mover			
+0	HDFS-9563	balancer & mover			
+1	HDFS-10502	fs			
+0	HDFS-10373	auto-failover			
+0	HDFS-10484	hdfs			
+0	HDFS-9442	namenode			
+0	HDFS-3747	balancer & mover			
+0	HDFS-3746	balancer & mover			
+1	HDFS-3361	hdfs-client			
+0	HDFS-6637	namenode			
+0	HDFS-4223				
+0	HDFS-5712	federation			
+0	HDFS-4154	ha			
+0	HDFS-6436	webhdfs			
+0	HDFS-5146				
+0	HDFS-4475				
+0	HDFS-9832	erasure-coding			
+0	HDFS-10362				
+0	HDFS-4469	namenode			
+0	HDFS-4847	snapshots			
+0	HDFS-6967	datanode	webhdfs		
+1	HDFS-3705	hdfs-client			
+1	HDFS-4764	test			
+0	HDFS-7173	datanode			
+1	HDFS-5521	datanode			
+0	HDFS-7471	test			
+1	HDFS-4191	namenode			
+0	HDFS-5275	security			
+0	HDFS-10350	hdfs	hdfs-client		
+0	HDFS-10359	datanode			
+0	HDFS-9938				
+0	HDFS-8000				
+0	HDFS-964				
+0	HDFS-10194	hdfs-client			
+0	HDFS-2852	build			
+0	HDFS-1519	build			
+0	HDFS-9819				
+0	HDFS-9152	nfs			
+1	HDFS-9828				
+0	HDFS-9863				
+0	HDFS-9824				
+0	HDFS-9846	tools			
+0	HDFS-9813				
+0	HDFS-9520				
+1	HDFS-8943	webhdfs			
+0	HDFS-9716	erasure-coding			
+1	HDFS-7265	datanode			
+0	HDFS-9698	balancer & mover	security		
+0	HDFS-6953				
+0	HDFS-8701				
+0	HDFS-9172				
+0	HDFS-815	test			
+0	HDFS-9662				
+0	HDFS-8889				
+0	HDFS-9617				
+1	HDFS-9192	hdfs-client			
+0	HDFS-9508	test			
+0	HDFS-9114				
+0	HDFS-9567				
+0	HDFS-8011	ha			
+0	HDFS-4488	webhdfs			
+0	HDFS-9127				
+0	HDFS-3439	balancer & mover			
+0	HDFS-2220	balancer & mover			
+0	HDFS-9064	namenode			
+0	HDFS-8748	security			
+0	HDFS-8638	namenode			
+0	HDFS-8318				
+1	HDFS-8246	hdfs-client	namenode		
+0	HDFS-8704				
+1	HDFS-7592	namenode			
+0	HDFS-5263	namenode	webhdfs		
+0	HDFS-5396	namenode			
+0	HDFS-8333				
+0	HDFS-8128	build			
+0	HDFS-9298				
+1	HDFS-7679				
+1	HDFS-7653				
+0	HDFS-8376				
+0	HDFS-8426				
+0	HDFS-2442	build			
+0	HDFS-7768	hdfs-client			
+0	HDFS-2660	test			
+0	HDFS-1771	scripts			
+0	HDFS-2664				
+0	HDFS-2298	test			
+0	HDFS-2119				
+0	HDFS-5897				
+0	HDFS-8784	namenode			
+0	HDFS-8835	namenode			
+0	HDFS-8912				
+0	HDFS-8756	ozone			
+0	HDFS-8685	hdfs-client			
+0	HDFS-3811				
+1	HDFS-3532	test			
+0	HDFS-8313				
+0	HDFS-8652	namenode			
+0	HDFS-4746	namenode			
+1	HDFS-8710				
+0	HDFS-7724	build			
+0	HDFS-8598				
+0	HDFS-3465	federation	namenode		
+1	HDFS-8625	hdfs-client			
+0	HDFS-8621				
+0	HDFS-8514				
+0	HDFS-8459				
+0	HDFS-8343				
+0	HDFS-8436				
+1	HDFS-7558	nfs			
+0	HDFS-2685				
+1	HDFS-2142	namenode			
+0	HDFS-5745	datanode			
+0	HDFS-923	libhdfs			
+0	HDFS-8119				
+0	HDFS-2009	build	test		
+0	HDFS-7693	libhdfs			
+0	HDFS-7271	encryption			
+0	HDFS-7569	datanode			
+0	HDFS-7324	ha	tools		
+1	HDFS-5264	datanode	namenode		
+1	HDFS-7975				
+0	HDFS-7981				
+0	HDFS-8006				
+0	HDFS-7992				
+0	HDFS-6496	namenode			
+0	HDFS-5193				
+0	HDFS-6940	namenode			
+0	HDFS-3092	ha	namenode		
+1	HDFS-2782	ha			
+0	HDFS-3095	namenode			
+0	HDFS-2721	test			
+0	HDFS-3011	build	datanode	namenode	
+0	HDFS-7605	distcp			
+0	HDFS-1951	namenode			
+0	HDFS-2723				
+0	HDFS-2774	test			
+1	HDFS-1961	documentation			
+0	HDFS-1982	namenode			
+0	HDFS-1247	test			
+0	HDFS-1553	namenode			
+0	HDFS-2336				
+0	HDFS-2192	build			
+1	HDFS-6111	datanode			
+0	HDFS-6147	datanode			
+0	HDFS-6037				
+0	HDFS-5688	ha	journal-node	security	
+0	HDFS-6081				
+0	HDFS-957	namenode			
+0	HDFS-2064	namenode			
+0	HDFS-7666	datanode			
+0	HDFS-135				
+0	HDFS-7117	namenode			
+0	HDFS-5423	datanode	namenode		
+0	HDFS-7580	journal-node	namenode		
+0	HDFS-7040				
+0	HDFS-6239	scripts			
+0	HDFS-2256	scripts			
+0	HDFS-5620	namenode			
+0	HDFS-3749	datanode			
+0	HDFS-4010				
+0	HDFS-4009				
+1	HDFS-6088				
+0	HDFS-7253	namenode			
+0	HDFS-7070	webhdfs			
+0	HDFS-11				
+0	HDFS-7234				
+0	HDFS-7160	namenode			
+0	HDFS-5722				
+0	HDFS-4198	scripts			
+0	HDFS-7043	auto-failover			
+0	HDFS-3543	contrib/raid			
+0	HDFS-7031	hdfs-client			
+0	HDFS-5204				
+0	HDFS-6016	datanode	ha	hdfs-client	namenode
+0	HDFS-866	libhdfs			
+0	HDFS-6737	hdfs-client			
+0	HDFS-1350	datanode			
+0	HDFS-1294	datanode	namenode		
+0	HDFS-1231	hdfs-client			
+0	HDFS-1228	datanode			
+0	HDFS-1115				
+0	HDFS-1069				
+0	HDFS-1066	namenode			
+0	HDFS-1060	datanode	hdfs-client		
+0	HDFS-1059				
+0	HDFS-862	namenode			
+0	HDFS-807	build			
+0	HDFS-801	build	tools		
+0	HDFS-583	namenode			
+0	HDFS-6747				
+0	HDFS-272				
+0	HDFS-460	datanode	namenode		
+0	HDFS-6554	namenode	security		
+0	HDFS-269				
+1	HDFS-366				
+0	HDFS-4				
+0	HDFS-6706				
+0	HDFS-2249	fuse-dfs			
+0	HDFS-465				
+0	HDFS-406				
+0	HDFS-408				
+0	HDFS-220				
+0	HDFS-232				
+0	HDFS-65				
+0	HDFS-293				
+0	HDFS-337				
+1	HDFS-281				
+1	HDFS-270	datanode			
+0	HDFS-188				
+0	HDFS-6548				
+0	HDFS-6428	webhdfs			
+0	HDFS-2097				
+0	HDFS-6319				
+0	HDFS-4696				
+0	HDFS-241				
+0	HDFS-5990	tools			
+0	HDFS-6139	hdfs-client			
+1	HDFS-193				
+0	HDFS-2076	datanode			
+0	HDFS-675	namenode			
+0	HDFS-6113				
+1	HDFS-4814	datanode			
+0	HDFS-6104				
+0	HDFS-3295	balancer & mover			
+1	HDFS-5446	datanode			
+1	HDFS-5829				
+0	HDFS-5660				
+0	HDFS-5725				
+0	HDFS-4600				
+0	HDFS-5200	datanode			
+0	HDFS-5622	namenode			
+1	HDFS-5595	namenode			
+0	HDFS-5566				
+0	HDFS-5611	webhdfs			
+0	HDFS-5607	libhdfs			
+0	HDFS-5599	hdfs-client	namenode		
+0	HDFS-3699				
+0	HDFS-4891				
+0	HDFS-5072	fuse-dfs			
+0	HDFS-4747	documentation			
+0	HDFS-5057				
+0	HDFS-5015	hdfs-client			
+0	HDFS-4991	libhdfs			
+0	HDFS-3182	ha	namenode		
+0	HDFS-4918	hdfs-client	namenode		
+0	HDFS-4844	hdfs-client			
+0	HDFS-4352	hdfs-client			
+1	HDFS-4683				
+0	HDFS-582	contrib/raid			
+0	HDFS-326				
+0	HDFS-4713	ha	namenode		
+1	HDFS-4731				
+0	HDFS-4703	namenode			
+0	HDFS-4682	namenode			
+0	HDFS-4644				
+0	HDFS-4624	federation			
+0	HDFS-2004	balancer & mover			
+0	HDFS-2124	datanode	hdfs-client	namenode	
+0	HDFS-2164	datanode	hdfs-client	namenode	
+0	HDFS-4501				
+0	HDFS-4343	datanode			
+0	HDFS-4263				
+0	HDFS-4166	namenode			
+0	HDFS-4109	hdfs-client			
+0	HDFS-3654				
+0	HDFS-3977				
+0	HDFS-3467	namenode			
+0	HDFS-2911	datanode	namenode		
+0	HDFS-3437	namenode			
+0	HDFS-3820	test			
+0	HDFS-540				
+0	HDFS-2740	hdfs-client	namenode		
+0	HDFS-453	namenode			
+1	HDFS-950	tools			
+0	HDFS-2435	webhdfs			
+0	HDFS-3588	namenode			
+0	HDFS-3324	datanode			
+1	HDFS-3377	balancer & mover			
+1	HDFS-140				
+0	HDFS-3001	hdfs-client			
+0	HDFS-404				
+0	HDFS-3392				
+0	HDFS-3430	datanode	hdfs-client	namenode	
+0	HDFS-3340				
+0	HDFS-2999	datanode			
+0	HDFS-3311				
+0	HDFS-2833				
+0	HDFS-3239				
+0	HDFS-3117				
+0	HDFS-3112	build			
+0	HDFS-1624				
+0	HDFS-2926	ha			
+0	HDFS-2155	hdfs-client			
+1	HDFS-2990				
+1	HDFS-2971	libhdfs			
+0	HDFS-545	datanode	namenode		
+0	HDFS-2960	ha	test		
+1	HDFS-2945	benchmarks			
+0	HDFS-502	test			
+0	HDFS-2865	ha	namenode		
+0	HDFS-2811	ha	hdfs-client	namenode	
+0	HDFS-2713	ha	hdfs-client		
+0	HDFS-319				
+0	HDFS-2736	ha			
+0	HDFS-2732	ha			
+0	HDFS-105				
+0	HDFS-146				
+0	HDFS-44				
+0	HDFS-104				
+1	HDFS-102				
+0	HDFS-93				
+0	HDFS-55				
+1	HDFS-58				
+0	HDFS-61				
+0	HDFS-19				
+0	HDFS-5				
+1	HDFS-10				
+0	HDFS-21				
+0	HDFS-667	contrib/hdfsproxy			
+0	HDFS-1819	test			
+0	HDFS-2549				
+0	HDFS-2550	hdfs-client			
+0	HDFS-2446	hdfs-client			
+0	HDFS-2448				
+0	HDFS-34				
+0	HDFS-226				
+0	HDFS-577				
+0	HDFS-580				
+0	HDFS-607				
+0	HDFS-870				
+0	HDFS-1049	tools			
+0	HDFS-2275	namenode			
+0	HDFS-2374				
+0	HDFS-2357				
+1	HDFS-1729	namenode			
+0	HDFS-2302				
+1	HDFS-2295	datanode	hdfs-client	namenode	
+0	HDFS-2293	hdfs-client			
+0	HDFS-1834	build			
+0	HDFS-2216	datanode			
+0	HDFS-474	contrib/hdfsproxy			
+0	HDFS-936	contrib/hdfsproxy	test		
+0	HDFS-911	contrib/hdfsproxy			
+0	HDFS-2177				
+0	HDFS-2122				
+0	HDFS-17				
+0	HDFS-1196				
+0	HDFS-2091				
+0	HDFS-1169				
+0	HDFS-1484	build			
+1	HDFS-419				
+0	HDFS-418				
+0	HDFS-789				
+0	HDFS-1864				
+0	HDFS-471	contrib/hdfsproxy			
+0	HDFS-1082	documentation			
+0	HDFS-1589				
+0	HDFS-810	namenode			
+0	HDFS-110				
+0	HDFS-1563	namenode			
+0	HDFS-1306				
+0	HDFS-1405	datanode			
+0	HDFS-1162	namenode			
+0	HDFS-1171	contrib/raid			
+0	HDFS-1453	contrib/raid			
+0	HDFS-1415				
+1	HDFS-98				
+0	HDFS-1237	hdfs-client			
+0	HDFS-31	tools			
+0	HDFS-1351	namenode			
+0	HDFS-86				
+0	HDFS-513	namenode			
+0	HDFS-320				
+0	HDFS-1229	hdfs-client			
+0	HDFS-81				
+0	HDFS-1239	hdfs-client			
+0	HDFS-18				
+0	HDFS-1236	hdfs-client			
+0	HDFS-1233	hdfs-client			
+0	HDFS-1180	build			
+0	HDFS-1008	security			
+0	HDFS-1098	documentation			
+0	HDFS-168				
+0	HDFS-848				
+0	HDFS-109				
+0	HDFS-683	tools			
+0	HDFS-628	datanode			
+0	HDFS-100				
+0	HDFS-33				
+1	HDFS-262				
+0	HDFS-643				
+0	HDFS-407				
+0	HDFS-541				
+0	HDFS-507	build			
+0	HDFS-505	build	test		
+1	HDFS-486				
+1	HDFS-485	datanode			
+0	HDFS-393				
+0	HDFS-14030	hdfs			
+0	HDFS-13568				
+0	HDFS-13562				
+0	HDFS-13552				
+0	HDFS-13569				
+0	HDFS-13561				
+0	HDFS-13555				
+0	HDFS-13288	namenode			
+0	HDFS-13206				
+0	HDFS-6859	security			
+0	HDFS-13034	hdfs			
+0	HDFS-12604	hdfs			
+0	HDFS-3638				
+0	HDFS-12649	namenode			
+0	HDFS-5834				
+0	HDFS-5718				
+0	HDFS-12401	HDFS-7240			
+0	HDFS-12041	hdfs			
+0	HDFS-11059	webhdfs			
+0	HDFS-10608				
+0	HDFS-8609	namenode			
+0	HDFS-291				
+0	HDFS-11228	fs			
+0	HDFS-4613	documentation			
+0	HDFS-10378	namenode			
+0	HDFS-9028				
+0	HDFS-10466	hdfs			
+0	HDFS-4869				
+0	HDFS-3435				
+0	HDFS-5551	datanode	namenode		
+0	HDFS-4387	libhdfs			
+0	HDFS-4202	federation	scripts		
+1	HDFS-10305	namenode			
+1	HDFS-10252	datanode	namenode		
+0	HDFS-9309				
+0	HDFS-9573				
+0	HDFS-3316	build			
+0	HDFS-1494	build			
+0	HDFS-8840				
+0	HDFS-9551	datanode			
+0	HDFS-3356	namenode			
+1	HDFS-9272	hdfs-client			
+0	HDFS-6540				
+0	HDFS-8906	datanode	namenode		
+1	HDFS-190				
+0	HDFS-9344	namenode			
+1	HDFS-9212	webhdfs			
+1	HDFS-2243	datanode			
+0	HDFS-4770	hdfs-client			
+1	HDFS-6674	security			
+0	HDFS-8341	balancer & mover			
+1	HDFS-4224	datanode			
+0	HDFS-9054	namenode			
+0	HDFS-9032				
+0	HDFS-6290	tools			
+1	HDFS-8861	namenode			
+0	HDFS-3660				
+0	HDFS-7973				
+0	HDFS-8700				
+0	HDFS-5319				
+0	HDFS-8504	hdfs-client			
+0	HDFS-3488				
+0	HDFS-4273				
+0	HDFS-2203	namenode			
+1	HDFS-274				
+0	HDFS-7905	namenode			
+0	HDFS-7808				
+0	HDFS-979	namenode			
+0	HDFS-3349	hdfs-client			
+1	HDFS-6946				
+0	HDFS-2381	build			
+0	HDFS-5903	datanode			
+0	HDFS-7895				
+0	HDFS-6177				
+0	HDFS-6501				
+0	HDFS-6726				
+0	HDFS-7220				
+0	HDFS-7571				
+0	HDFS-7289				
+0	HDFS-7311				
+0	HDFS-7422				
+1	HDFS-4173	journal-node	namenode		
+0	HDFS-4063	scripts	tools		
+0	HDFS-924				
+0	HDFS-7428	tools			
+1	HDFS-1895	scripts			
+0	HDFS-7038	build			
+1	HDFS-2482				
+0	HDFS-2483				
+0	HDFS-6821				
+0	HDFS-6091	journal-node			
+0	HDFS-1248	datanode	namenode	test	
+0	HDFS-901	build			
+0	HDFS-6761				
+1	HDFS-559	namenode			
+0	HDFS-369				
+0	HDFS-271				
+1	HDFS-280				
+0	HDFS-79				
+0	HDFS-6415	namenode			
+0	HDFS-6083				
+0	HDFS-4670				
+0	HDFS-5975	tools			
+0	HDFS-8				
+0	HDFS-5867	tools			
+0	HDFS-431	fuse-dfs			
+0	HDFS-160				
+0	HDFS-5541	hdfs-client			
+0	HDFS-5036	namenode			
+1	HDFS-4939	ha	namenode		
+0	HDFS-1269	hdfs-client			
+0	HDFS-62				
+0	HDFS-4711				
+0	HDFS-4535	namenode			
+0	HDFS-3947				
+0	HDFS-4474	build			
+0	HDFS-3801	namenode			
+0	HDFS-3371				
+0	HDFS-4069	scripts			
+0	HDFS-3162	namenode			
+0	HDFS-3748	federation	ha	test	
+0	HDFS-3253				
+1	HDFS-2429	webhdfs			
+0	HDFS-3237				
+0	HDFS-2033				
+0	HDFS-3366				
+0	HDFS-798	build			
+1	HDFS-3074	namenode			
+0	HDFS-2162	ha	namenode		
+0	HDFS-238				
+0	HDFS-155				
+0	HDFS-2783	ha			
+0	HDFS-1863	datanode			
+0	HDFS-973	datanode			
+0	HDFS-36				
+0	HDFS-497	hdfs-client			
+0	HDFS-131				
+0	HDFS-71				
+0	HDFS-41				
+0	HDFS-6				
+1	HDFS-263				
+1	HDFS-2201				
+0	HDFS-1941	namenode			
+0	HDFS-1874	datanode	namenode		
+0	HDFS-2008				
+0	HDFS-248				
+1	HDFS-284				
+0	HDFS-925	hdfs-client			
+1	HDFS-639				
+0	HDFS-414				
+1	HDFS-164				
+0	HDFS-70				
+0	HDFS-266				
+0	HDFS-417				
+0	HDFS-307				
+0	HDFS-1710	build			
+0	HDFS-1569	scripts			
+0	HDFS-1246	test			
+0	HDFS-1175	contrib/raid			
+0	HDFS-165				
+1	HDFS-516				
+0	HDFS-50				
+0	HDFS-14217	datanode	namenode		
+0	HDFS-11607	hdfs			
+0	HDFS-9836	ha			
+0	HDFS-9492	namenode			
+0	HDFS-12065	erasure-coding			
+1	HDFS-4394	namenode	test		
+0	HDFS-4981	snapshots			
+0	HDFS-3805				
+0	HDFS-8390				
+0	HDFS-3621	hdfs-client			
+0	HDFS-2530	test			
+0	HDFS-7631				
+0	HDFS-2892	namenode			
+0	HDFS-7297	test			
+0	HDFS-6669				
+0	HDFS-5864	tools			
+0	HDFS-5764				
+0	HDFS-4881	datanode			
+0	HDFS-5179				
+0	HDFS-3994	hdfs-client			
+0	HDFS-2279	test			
+0	HDFS-3855	datanode			
+0	HDFS-2987	datanode			
+0	HDFS-3327				
+0	HDFS-1266				
+0	HDFS-416				
+0	HDFS-1916	documentation			
+0	HDFS-1545	tools			
+0	HDFS-13952				
+0	HDFS-12515	ozone			
+0	HDFS-12461	ozone			
+0	HDFS-12029	datanode			
+0	HDFS-8662	ha			
+0	HDFS-5553	ha	hdfs-client		
+0	HDFS-5550	ha	hdfs-client		
+0	HDFS-8475				
+0	HDFS-9471	webhdfs			
+0	HDFS-2329	namenode			
+0	HDFS-7646				
+0	HDFS-7288				
+0	HDFS-4901	security	webhdfs		
+0	HDFS-2498	test			
+0	HDFS-3354	documentation			
+0	HDFS-1515	test			
+1	HDFS-1576	namenode			
+1	HDFS-650				
+0	HDFS-990	namenode			
+0	HDFS-794	build	test		
+0	HDFS-13828	datanode			
+0	HDFS-13221	ozone			
+0	HDFS-12688	hdfs			
+0	HDFS-12088	erasure-coding	hdfs		
+0	HDFS-10365	hdfs			
+0	HDFS-10483	native			
+0	HDFS-5773				
+0	HDFS-8485				
+1	HDFS-8954	datanode			
+0	HDFS-6762	build			
+0	HDFS-3122	datanode	namenode		
+0	HDFS-2473	hdfs-client			
+0	HDFS-1574	namenode			
+0	HDFS-43				
+0	HDFS-148				
+0	HDFS-3903				
+0	HDFS-1040				
+0	HDFS-13817	federation			
+0	HDFS-14014				
+0	HDFS-14062	webhdfs			
+0	HDFS-14012	hdfs-client			
+0	HDFS-12782	erasure-coding			
+0	HDFS-12936	datanode			
+0	HDFS-13874	namenode			
+0	HDFS-13205	snapshots			
+0	HDFS-13680	httpfs			
+0	HDFS-12962	ozone			
+0	HDFS-12734	ozone			
+0	HDFS-13394	ozone			
+0	HDFS-8675	datanode			
+0	HDFS-13247	datanode			
+0	HDFS-12654	hdfs	httpfs	namenode	
+0	HDFS-13105	datanode			
+0	HDFS-13104	namenode			
+0	HDFS-12087	hdfs			
+0	HDFS-13038				
+0	HDFS-12331	ozone			
+0	HDFS-12527	documentation			
+0	HDFS-12413	erasure-coding			
+0	HDFS-10269				
+0	HDFS-12326	hdfs-client			
+1	HDFS-12201	snapshots			
+0	HDFS-12109	fs			
+0	HDFS-11752	datanode	hdfs		
+1	HDFS-9473				
+0	HDFS-11917	nfs			
+0	HDFS-11599				
+0	HDFS-11857				
+0	HDFS-11746	ozone			
+0	HDFS-5567	caching			
+0	HDFS-11683	erasure-coding			
+0	HDFS-11552				
+0	HDFS-7810	datanode	namenode		
+0	HDFS-11452				
+0	HDFS-1956	namenode			
+0	HDFS-11183				
+0	HDFS-11507	namenode			
+0	HDFS-11413				
+0	HDFS-8125				
+0	HDFS-11343				
+0	HDFS-8095				
+1	HDFS-9826				
+0	HDFS-6555	namenode	security		
+1	HDFS-11277	datanode			
+0	HDFS-11200	build			
+0	HDFS-11205				
+0	HDFS-11199	hdfs			
+0	HDFS-11155	datanode			
+1	HDFS-11089	test			
+0	HDFS-10904	balancer & mover			
+0	HDFS-6682				
+0	HDFS-10428				
+0	HDFS-10697	erasure-coding			
+0	HDFS-10593				
+0	HDFS-4654	ha	namenode		
+0	HDFS-3526				
+0	HDFS-5838				
+0	HDFS-4653				
+0	HDFS-6221	datanode	webhdfs		
+0	HDFS-4526	namenode			
+0	HDFS-5670	hdfs-client	namenode		
+0	HDFS-5026				
+0	HDFS-3563	contrib/raid			
+0	HDFS-4771	namenode			
+0	HDFS-5227				
+0	HDFS-5271	documentation			
+0	HDFS-4967	ha	hdfs-client	namenode	
+0	HDFS-5686	namenode			
+0	HDFS-350				
+0	HDFS-10185	test			
+0	HDFS-1613				
+0	HDFS-3917				
+0	HDFS-8296	namenode			
+0	HDFS-7447	security			
+0	HDFS-9540				
+0	HDFS-2593	webhdfs			
+0	HDFS-2851	balancer & mover	datanode	ha	namenode
+0	HDFS-9361	namenode			
+0	HDFS-8419	fs			
+0	HDFS-8126	namenode			
+0	HDFS-1137	namenode			
+0	HDFS-8574				
+0	HDFS-2881	test			
+0	HDFS-9199				
+0	HDFS-8373				
+1	HDFS-9186	hdfs-client			
+0	HDFS-1726	namenode			
+0	HDFS-9050				
+0	HDFS-9102				
+0	HDFS-8594				
+0	HDFS-8886				
+0	HDFS-8877	namenode			
+0	HDFS-3619	balancer & mover			
+0	HDFS-3411	balancer & mover			
+0	HDFS-1676	balancer & mover			
+0	HDFS-8531	namenode			
+0	HDFS-8503	fs			
+0	HDFS-7545				
+1	HDFS-7882				
+0	HDFS-8467				
+0	HDFS-8473				
+1	HDFS-3512	datanode			
+0	HDFS-348				
+0	HDFS-8040	security			
+0	HDFS-7504	hdfs-client	webhdfs		
+0	HDFS-7432				
+0	HDFS-7658				
+0	HDFS-7972	namenode			
+0	HDFS-3668				
+0	HDFS-7256	encryption	security		
+0	HDFS-3028	datanode			
+0	HDFS-2282	datanode			
+0	HDFS-1488	namenode			
+0	HDFS-1026	documentation	namenode		
+0	HDFS-2045	scripts			
+0	HDFS-2930	tools			
+0	HDFS-7570				
+0	HDFS-1213	hdfs-client			
+0	HDFS-7534				
+1	HDFS-7477				
+0	HDFS-5960	namenode			
+0	HDFS-7451				
+0	HDFS-7241	encryption	federation		
+0	HDFS-1579	datanode			
+0	HDFS-6049				
+0	HDFS-1530				
+0	HDFS-6845				
+0	HDFS-1764				
+0	HDFS-6684				
+0	HDFS-6321				
+0	HDFS-6254	libhdfs			
+1	HDFS-6223	hdfs-client			
+0	HDFS-6786	caching			
+0	HDFS-1441				
+0	HDFS-6626				
+0	HDFS-279				
+0	HDFS-130				
+0	HDFS-45				
+0	HDFS-6688				
+0	HDFS-6641	namenode			
+0	HDFS-6654				
+0	HDFS-172				
+0	HDFS-6547	namenode	security		
+1	HDFS-1379	hdfs-client	namenode		
+0	HDFS-6508	namenode	security		
+0	HDFS-6523	namenode	security		
+0	HDFS-6393	namenode	security		
+0	HDFS-6390	namenode	security		
+1	HDFS-6457	namenode	security		
+0	HDFS-6577	namenode			
+0	HDFS-6336	namenode	webhdfs		
+0	HDFS-4051	test			
+0	HDFS-951				
+0	HDFS-1336	datanode			
+0	HDFS-108				
+0	HDFS-1290	namenode			
+0	HDFS-1106				
+0	HDFS-2420				
+0	HDFS-1766	datanode			
+0	HDFS-3333	namenode			
+0	HDFS-3534				
+1	HDFS-39				
+0	HDFS-5927	namenode			
+0	HDFS-5749				
+0	HDFS-5836				
+0	HDFS-198	hdfs-client	namenode		
+0	HDFS-5108				
+0	HDFS-4871				
+0	HDFS-4889				
+0	HDFS-5081				
+0	HDFS-5046	datanode			
+0	HDFS-3960	datanode	hdfs-client	namenode	
+0	HDFS-282				
+0	HDFS-4276	namenode			
+0	HDFS-4689	datanode	hdfs-client	namenode	
+0	HDFS-693	datanode			
+0	HDFS-3600	datanode			
+0	HDFS-3670	webhdfs			
+1	HDFS-1143	namenode			
+0	HDFS-1076	test			
+0	HDFS-2431	webhdfs			
+0	HDFS-2475	webhdfs			
+0	HDFS-535	hdfs-client	test		
+0	HDFS-2515	namenode			
+0	HDFS-2997	namenode			
+0	HDFS-2848				
+0	HDFS-75				
+0	HDFS-1287				
+0	HDFS-2806	ha			
+0	HDFS-2354	ha	namenode		
+0	HDFS-2756	ha			
+0	HDFS-2787				
+0	HDFS-626	namenode			
+0	HDFS-47				
+0	HDFS-67				
+0	HDFS-103				
+0	HDFS-82				
+0	HDFS-92				
+0	HDFS-57				
+1	HDFS-64				
+1	HDFS-59				
+0	HDFS-12				
+0	HDFS-22				
+0	HDFS-20				
+1	HDFS-3				
+1	HDFS-1372				
+0	HDFS-1374	test			
+0	HDFS-2370	tools			
+0	HDFS-2278				
+0	HDFS-1740				
+0	HDFS-2457	namenode			
+0	HDFS-1896				
+0	HDFS-2013	namenode	test		
+0	HDFS-1604	security			
+0	HDFS-2150	namenode			
+1	HDFS-339				
+0	HDFS-2151				
+0	HDFS-2125				
+0	HDFS-2113				
+0	HDFS-2103				
+0	HDFS-1285	test			
+0	HDFS-1050	contrib/hdfsproxy	test		
+0	HDFS-1388	documentation			
+0	HDFS-121	namenode			
+0	HDFS-387				
+0	HDFS-937	datanode			
+0	HDFS-1549				
+0	HDFS-37				
+0	HDFS-1155				
+0	HDFS-1220	namenode			
+0	HDFS-1221	namenode			
+0	HDFS-1142	namenode			
+0	HDFS-340				
+0	HDFS-1025				
+0	HDFS-87				
+0	HDFS-38				
+0	HDFS-847	fuse-dfs			
+0	HDFS-8537				
+0	HDFS-8536	tools			
+0	HDFS-13047	ozone			
+0	HDFS-12827	documentation			
+0	HDFS-12410	datanode	fs		
+0	HDFS-11921	ozone			
+1	HDFS-12277	benchmarks	tools		
+0	HDFS-5465				
+0	HDFS-11763	ozone			
+0	HDFS-11521				
+0	HDFS-7974				
+0	HDFS-11079	test			
+0	HDFS-9883				
+0	HDFS-10863	namenode			
+0	HDFS-9912	documentation			
+0	HDFS-10257	libhdfs			
+0	HDFS-6251				
+0	HDFS-3557				
+0	HDFS-4936	namenode			
+0	HDFS-8761	datanode			
+0	HDFS-8159				
+0	HDFS-9138	test			
+0	HDFS-7633	datanode			
+0	HDFS-9136	test			
+0	HDFS-7465				
+0	HDFS-852	balancer & mover			
+0	HDFS-5546				
+0	HDFS-5687	hdfs-client			
+0	HDFS-8500	federation			
+0	HDFS-8452				
+0	HDFS-3233				
+1	HDFS-4958				
+0	HDFS-4789				
+0	HDFS-5740	hdfs-client			
+0	HDFS-1949	namenode			
+0	HDFS-7538				
+0	HDFS-6074	namenode			
+0	HDFS-2017	namenode			
+0	HDFS-4108	security	webhdfs		
+0	HDFS-5345	datanode			
+0	HDFS-6725	datanode			
+0	HDFS-6676	security			
+0	HDFS-6368				
+0	HDFS-6479	namenode	security		
+0	HDFS-6341	namenode			
+0	HDFS-6176				
+0	HDFS-2734	namenode			
+0	HDFS-2571	namenode			
+0	HDFS-6001	ha			
+0	HDFS-803	build			
+0	HDFS-372				
+1	HDFS-285				
+0	HDFS-174				
+0	HDFS-184				
+0	HDFS-4117				
+0	HDFS-3472	ha			
+0	HDFS-1724	datanode	hdfs-client		
+0	HDFS-1587	datanode			
+0	HDFS-298				
+0	HDFS-72				
+0	HDFS-111				
+0	HDFS-129				
+0	HDFS-300				
+0	HDFS-2176				
+1	HDFS-128				
+0	HDFS-106				
+1	HDFS-13067				
+0	HDFS-12944				
+0	HDFS-5896				
+0	HDFS-12493	namenode			
+0	HDFS-12160				
+0	HDFS-11871	balancer & mover			
+0	HDFS-9673				
+0	HDFS-6628	documentation			
+0	HDFS-5894	security			
+0	HDFS-2608	namenode			
+0	HDFS-5720	datanode			
+0	HDFS-533	build			
+0	HDFS-1752	namenode			

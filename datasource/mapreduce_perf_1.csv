@@ -1,0 +1,1149 @@
+﻿"After parity files are archived into a parity HAR, a change in the source file does not cause the HAR to be recreated. Instead, individual parity files are created for the modified files but the HAR is not touched. This causes increased disk usage for parity data.
+
+The parity HAR could be recreated if a certain percentage of files in the HAR are determined to be outdated.
+
+",1
+nan,1
+nan,1
+"
+If you run distcp with '-update' option, for _each of the files_ present on source cluster setup invokes a separate RPC to destination cluster to fetch file info. 
+Usually this overhead is not very noticeable when both cluster are geographically close to each other. But if the latency is large, setup could take couple of orders of magnitude longer.
+
+E.g. : source has 10k directories, each with about 10 files, round trip latency between source and destination is 75 ms (typical for coast-to-coast clusters). 
+If we run distcp on source cluster, set up would take about _2.5 hours_ irrespective of whether destination has these files or not. '-lsr' on the same dest dir from source cluster would take up to 12 min (depending on how many directories already exist on dest). 
+
+  * A fairly simple fix to how setup() iterates should bring the set up time to same as '-lsr'. I will have a patch for this.. (though 12 min is too large).
+  * A more scalable option is to differ update check to mappers.
+
+",1
+nan,1
+"TaskTracker.TaskInProgress.launchTask() does not launch a task if it is not in an expected state. However, in the case where the task is not launched, the slot is not released. We have observed this in production - the task was in SUCCEEDED state by the time launchTask() got to it and then the slot was never released. It is not clear how the task got into that state, but it is better to handle the case.",1
+"Between sending a task SIGTERM and SIGKILL, the JvmManager will sleep for sleepTimeBeforeSigKill millis. But in many call heirarchies this is done while holding important locks like the TT lock and the JvmManagerForType lock. With the default 5 second sleep, this prevents other tasks from getting scheduled and reduces scheduling throughput.",1
+"I have MapReduce jobs that use a large amount of per-task memory, because the algorithm I'm using converges faster if more data is together on a node.  I have my JVM heap size set at 3200 MB, and if I use the popular rule of thumb that io.sort.mb should be ~70% of that, I get 2240 MB.  I rounded this down to 2048 MB, but map tasks crash with :
+{noformat}
+java.io.IOException: Invalid ""io.sort.mb"": 2048
+        at org.apache.hadoop.mapred.MapTask$MapOutputBuffer.<init>(MapTask.java:790)
+        ...
+{noformat}
+
+MapTask.MapOutputBuffer implements its buffer with a byte[] of size io.sort.mb (in bytes), and is sanity checking the size before allocating the array.  The problem is that Java arrays can't have more than 2^31 - 1 elements (even with a 64-bit JVM), and this is a limitation of the Java language specificiation itself.  As memory and data sizes grow, this would seem to be a crippling limtiation of Java.
+
+It would be nice if this ceiling were documented, and an error issued sooner, e.g. in jobtracker startup upon reading the config.  Going forward, we may need to implement some array of arrays hack for large buffers. :(",1
+nan,1
+nan,1
+nan,1
+nan,1
+nan,1
+"{code:title=BinaryProtocol$TeeOutputStream.java|borderStyle=solid}
+
+public void close() throws IOException {
+      flush();
+      file.close();
+      out.close();
+    }
+{code} 
+
+In the above code, if the file.close() throws any exception out will not be closed.
+ 
+",1
+APPLICATION_STOP is never sent to the AuxServices only APPLICATION_INIT.  This means that all map intermediate data will never be deleted.,1
+"The current TaskLauncher serially launches new tasks one at a time. During the launch it does the localization and then starts the map/reduce task.  This can cause any other tasks to be blocked waiting for the current task to be localized and started. In some instances we have seen a task that has a large file to localize (1.2MB) block another task for about 40 minutes. This particular task being blocked was a cleanup task which caused the job to be delayed finishing for the 40 minutes.
+",1
+"When there is a version mismatch between the JobTracker and TaskTracker, TaskTracker is calling the close () method twice. Once in the finally block of run () method and also in the shutdown () method call. ",1
+"MultipleOutputs.write creates a new TaskAttemptContext, which we've seen to take a significant amount of CPU. The TaskAttemptContext constructor creates a JobConf, gets current UGI, etc. I don't see any reason it needs to do this, instead of just creating a single TaskAttemptContext when the InputFormat is created (or lazily but cached as a member)",1
+"In case NM eventually fails to start the ContainerManager server because of say a port clash, RM will have to wait for expiry to detect the NM crash.
+
+It is desirable to make NM register with RM only after it can start all of its components successfully.",1
+nan,1
+nan,1
+nan,1
+"Loading a job status page in trunk takes a lot of time, and it seems like most of the time is spent resolving counter names. Looking through the JDK source, ResourceBundle.getBundle(String) ends up calling getClassContext() which is not very efficient. I think if we pass our own classloader manually it will be faster. In Counters.incrAllCounters, we may also be able to avoid setting the counter name if one is already set.",1
+A simple example pipes job gets stuck without making any progress. The AM is launched but the maps do not make any progress.,1
+"While running GridMixV3, one of the jobs got stuck for 15 hrs. After clicking on the Job-page, found one of its reduces to be stuck. Looking at syslog of the stuck reducer, found this:
+Task-logs' head:
+
+{code}
+2011-09-19 17:57:22,002 INFO org.apache.hadoop.metrics2.impl.MetricsSystemImpl: Scheduled snapshot period at 10 second(s).
+2011-09-19 17:57:22,002 INFO org.apache.hadoop.metrics2.impl.MetricsSystemImpl: ReduceTask metrics system started
+{code}
+
+Task-logs' tail:
+{code}
+2011-09-19 18:06:49,818 INFO org.apache.hadoop.hdfs.DFSClient: Exception in createBlockOutputStream java.io.IOException: Bad connect ack with firstBadLink as <DATANODE1>
+2011-09-19 18:06:49,818 WARN org.apache.hadoop.hdfs.DFSClient: Error Recovery for block BP-1405370709-<NAMENODE>-1316452621953:blk_-7004355226367468317_79871 in pipeline  <DATANODE2>,  <DATANODE1>: bad datanode  <DATANODE1>
+2011-09-19 18:06:49,818 DEBUG org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferProtocol: lastAckedSeqno = 26870
+2011-09-19 18:06:49,820 DEBUG org.apache.hadoop.ipc.Client: IPC Client (26613121) connection to <NAMENODE> from gridperf sending #454
+2011-09-19 18:06:49,826 DEBUG org.apache.hadoop.ipc.Client: IPC Client (26613121) connection to <<NAMENODE> from gridperf got value #454
+2011-09-19 18:06:49,827 DEBUG org.apache.hadoop.ipc.RPC: Call: getAdditionalDatanode 8
+2011-09-19 18:06:49,827 DEBUG org.apache.hadoop.hdfs.DFSClient: Connecting to datanode <DATANODE2>
+2011-09-19 18:06:49,827 DEBUG org.apache.hadoop.hdfs.DFSClient: Send buf size 131071
+2011-09-19 18:06:49,833 WARN org.apache.hadoop.hdfs.DFSClient: DataStreamer Exception
+java.io.EOFException: Premature EOF: no length prefix available
+        at org.apache.hadoop.hdfs.protocol.HdfsProtoUtil.vintPrefixed(HdfsProtoUtil.java:158)
+        at org.apache.hadoop.hdfs.DFSOutputStream$DataStreamer.transfer(DFSOutputStream.java:860)
+        at org.apache.hadoop.hdfs.DFSOutputStream$DataStreamer.addDatanode2ExistingPipeline(DFSOutputStream.java:838)
+        at org.apache.hadoop.hdfs.DFSOutputStream$DataStreamer.setupPipelineForAppendOrRecovery(DFSOutputStream.java:929)
+        at org.apache.hadoop.hdfs.DFSOutputStream$DataStreamer.processDatanodeError(DFSOutputStream.java:740)
+        at org.apache.hadoop.hdfs.DFSOutputStream$DataStreamer.run(DFSOutputStream.java:415)
+2011-09-19 18:06:49,837 WARN org.apache.hadoop.mapred.YarnChild: Exception running child : java.io.EOFException: Premature EOF: no length prefix available
+        at org.apache.hadoop.hdfs.protocol.HdfsProtoUtil.vintPrefixed(HdfsProtoUtil.java:158)
+        at org.apache.hadoop.hdfs.DFSOutputStream$DataStreamer.transfer(DFSOutputStream.java:860)
+        at org.apache.hadoop.hdfs.DFSOutputStream$DataStreamer.addDatanode2ExistingPipeline(DFSOutputStream.java:838)
+        at org.apache.hadoop.hdfs.DFSOutputStream$DataStreamer.setupPipelineForAppendOrRecovery(DFSOutputStream.java:929)
+        at org.apache.hadoop.hdfs.DFSOutputStream$DataStreamer.processDatanodeError(DFSOutputStream.java:740)
+        at org.apache.hadoop.hdfs.DFSOutputStream$DataStreamer.run(DFSOutputStream.java:415)
+
+2011-09-19 18:06:49,837 DEBUG org.apache.hadoop.ipc.Client: IPC Client (26613121) connection to <APPMASTER> from job_1316452677984_0862 sending #455
+2011-09-19 18:06:49,839 DEBUG org.apache.hadoop.ipc.Client: IPC Client (26613121) connection to <APPMASTER> from job_1316452677984_0862 got value #455
+2011-09-19 18:06:49,840 DEBUG org.apache.hadoop.ipc.RPC: Call: statusUpdate 3
+2011-09-19 18:06:49,840 INFO org.apache.hadoop.mapred.Task: Runnning cleanup for the task
+2011-09-19 18:06:49,840 DEBUG org.apache.hadoop.ipc.Client: IPC Client (26613121) connection to <NAMENODE> from gridperf sending #456
+2011-09-19 18:06:49,858 DEBUG org.apache.hadoop.ipc.Client: IPC Client (26613121) connection to <NAMENODE> from gridperf got value #456
+2011-09-19 18:06:49,858 DEBUG org.apache.hadoop.ipc.RPC: Call: delete 18
+2011-09-19 18:06:49,858 DEBUG org.apache.hadoop.ipc.Client: IPC Client (26613121) connection to <APPMASTER> from job_1316452677984_0862 sending #457
+2011-09-19 18:06:49,859 DEBUG org.apache.hadoop.ipc.Client: IPC Client (26613121) connection to <APPMASTER> from job_1316452677984_0862 got value #457
+2011-09-19 18:06:49,859 DEBUG org.apache.hadoop.ipc.RPC: Call: reportDiagnosticInfo 1
+2011-09-19 18:06:49,859 DEBUG org.apache.hadoop.metrics2.impl.MetricsSystemImpl: refCount=1
+2011-09-19 18:06:49,859 INFO org.apache.hadoop.metrics2.impl.MetricsSystemImpl: Stopping ReduceTask metrics system...
+2011-09-19 18:06:49,859 INFO org.apache.hadoop.metrics2.impl.MetricsSystemImpl: Stopping metrics source UgiMetrics
+2011-09-19 18:06:49,859 DEBUG org.apache.hadoop.metrics2.impl.MetricsSystemImpl: class org.apache.hadoop.metrics2.lib.MetricsSourceBuilder$1
+2011-09-19 18:06:49,860 DEBUG org.apache.hadoop.metrics2.util.MBeans: Unregistering Hadoop:service=ReduceTask,name=UgiMetrics
+2011-09-19 18:06:49,860 INFO org.apache.hadoop.metrics2.impl.MetricsSystemImpl: Stopping metrics source JvmMetrics
+2011-09-19 18:06:49,860 DEBUG org.apache.hadoop.metrics2.impl.MetricsSystemImpl: class org.apache.hadoop.metrics2.source.JvmMetrics
+2011-09-19 18:06:49,860 DEBUG org.apache.hadoop.metrics2.util.MBeans: Unregistering Hadoop:service=ReduceTask,name=JvmMetrics
+2011-09-19 18:06:49,860 DEBUG org.apache.hadoop.metrics2.util.MBeans: Unregistering Hadoop:service=ReduceTask,name=MetricsSystem,sub=Stats
+2011-09-19 18:06:49,860 INFO org.apache.hadoop.metrics2.impl.MetricsSystemImpl: ReduceTask metrics system stopped.
+2011-09-19 18:06:49,860 DEBUG org.apache.hadoop.metrics2.util.MBeans: Unregistering Hadoop:service=ReduceTask,name=MetricsSystem,sub=Control
+2011-09-19 18:06:49,860 INFO org.apache.hadoop.metrics2.impl.MetricsSystemImpl: ReduceTask metrics system shutdown complete.
+{code}
+
+Which means that tasks is supposed to have stopped within 20 secs, whereas the process itself is stuck for more than 15 hours. From AM log, also found that this task was sending its update regularly. ps -ef | grep java was also showing that process is still alive.
+",1
+"> Hey Vinod,
+> 
+> OK, so I have a little more clarity into this.
+> 
+> When I bump my resource request for my AM to 4096, it runs. The important line in the NM logs is:
+> 
+> 2011-09-21 13:43:44,366 INFO  monitor.ContainersMonitorImpl (ContainersMonitorImpl.java:run(402)) - Memory usage of ProcessTree 25656 for container-id container_1316637655278_0001_01_000001 : Virtual 2260938752 bytes, limit : 4294967296 bytes; Physical 120860672 bytes, limit -1 bytes
+> 
+> The thing to note is the virtual memory, which is off the charts, even though my physical memory is almost nothing (12 megs). I'm still poking around the code, but I am noticing that there are two checks in the NM, one for virtual mem, and one for physical mem. The virtual memory check appears to be toggle-able, but is presumably defaulted to on.
+> 
+> At this point I'm trying to figure out exactly what the VMEM check is for, why YARN thinks my app is taking 2 gigs, and how to fix this.
+> 
+> Cheers,
+> Chris
+> ________________________________________
+> From: Chris Riccomini [criccomini@linkedin.com]
+> Sent: Wednesday, September 21, 2011 1:42 PM
+> To: mapreduce-dev@hadoop.apache.org
+> Subject: Re: ApplicationMaster Memory Usage
+> 
+> For the record, I bumped to 4096 for memory resource request, and it works.
+> :(
+> 
+> 
+> On 9/21/11 1:32 PM, ""Chris Riccomini"" <criccomini@linkedin.com> wrote:
+> 
+>> Hey Vinod,
+>> 
+>> So, I ran my application master directly from the CLI. I commented out the
+>> YARN-specific code. It runs fine without leaking memory.
+>> 
+>> I then ran it from YARN, with all YARN-specific code commented it. It again
+>> ran fine.
+>> 
+>> I then uncommented JUST my registerWithResourceManager call. It then fails
+>> with OOM after a few seconds. I call registerWithResourceManager, and then go
+>> into a while(true) { println(""yeh"") sleep(1000) }. Doing this prints:
+>> 
+>> yeh
+>> yeh
+>> yeh
+>> yeh
+>> yeh
+>> 
+>> At which point, it dies, and, in the NodeManager,I see:
+>> 
+>> 2011-09-21 13:24:51,036 WARN  monitor.ContainersMonitorImpl
+>> (ContainersMonitorImpl.java:isProcessTreeOverLimit(289)) - Process tree for
+>> container: container_1316626117280_0005_01_000001 has processes older than 1
+>> iteration running over the configured limit. Limit=2147483648, current usage =
+>> 2192773120
+>> 2011-09-21 13:24:51,037 WARN  monitor.ContainersMonitorImpl
+>> (ContainersMonitorImpl.java:run(453)) - Container
+>> [pid=23852,containerID=container_1316626117280_0005_01_000001] is running
+>> beyond memory-limits. Current usage : 2192773120bytes. Limit :
+>> 2147483648bytes. Killing container.
+>> Dump of the process-tree for container_1316626117280_0005_01_000001 :
+>> |- PID PPID PGRPID SESSID CMD_NAME USER_MODE_TIME(MILLIS) SYSTEM_TIME(MILLIS)
+>> VMEM_USAGE(BYTES) RSSMEM_USAGE(PAGES) FULL_CMD_LINE
+>> |- 23852 20570 23852 23852 (bash) 0 0 108638208 303 /bin/bash -c java -Xmx512M
+>> -cp './package/*' kafka.yarn.ApplicationMaster
+>> /home/criccomi/git/kafka-yarn/dist/kafka-streamer.tgz 5 1 1316626117280
+>> com.linkedin.TODO 1
+>> 1>/tmp/logs/application_1316626117280_0005/container_1316626117280_0005_01_000
+>> 001/stdout
+>> 2>/tmp/logs/application_1316626117280_0005/container_1316626117280_0005_01_000
+>> 001/stderr
+>> |- 23855 23852 23852 23852 (java) 81 4 2084134912 14772 java -Xmx512M -cp
+>> ./package/* kafka.yarn.ApplicationMaster
+>> /home/criccomi/git/kafka-yarn/dist/kafka-streamer.tgz 5 1 1316626117280
+>> com.linkedin.TODO 1
+>> 2011-09-21 13:24:51,037 INFO  monitor.ContainersMonitorImpl
+>> (ContainersMonitorImpl.java:run(463)) - Removed ProcessTree with root 23852
+>> 
+>> Either something is leaking in YARN, or my registerWithResourceManager code
+>> (see below) is doing something funky.
+>> 
+>> I'm trying to avoid going through all the pain of attaching a remote debugger.
+>> Presumably things aren't leaking in YARN, which means it's likely that I'm
+>> doing something wrong in my registration code.
+>> 
+>> Incidentally, my NodeManager is running with 1000 megs. My application master
+>> memory is set to 2048, and my -Xmx setting is 512M
+>> 
+>> Cheers,
+>> Chris
+>> ________________________________________
+>> From: Vinod Kumar Vavilapalli [vinodkv@hortonworks.com]
+>> Sent: Wednesday, September 21, 2011 11:52 AM
+>> To: mapreduce-dev@hadoop.apache.org
+>> Subject: Re: ApplicationMaster Memory Usage
+>> 
+>> Actually MAPREDUCE-2998 is only related to MRV2, so that isn't related.
+>> 
+>> Somehow, your JVM itself is taking so much of virtual memory. Are you
+>> loading some native libs?
+>> 
+>> And how many containers have already been allocated by the time the AM
+>> crashes. May be you are accumulating some per-container data. You can try
+>> dumping heap vai hprof.
+>> 
+>> +Vinod
+>> 
+>> 
+>> On Wed, Sep 21, 2011 at 11:21 PM, Chris Riccomini
+>> <criccomini@linkedin.com>wrote:
+>> 
+>>> Hey Vinod,
+>>> 
+>>> I svn up'd, and rebuilt. My application's task (container) now runs!
+>>> 
+>>> Unfortunately, my application master eventually gets killed by the
+>>> NodeManager anyway, and I'm still not clear as to why. The AM is just
+>>> running a loop, asking for a container, and executing a command in the
+>>> container. It keeps doing this over and over again. After a few iterations,
+>>> it gets killed with something like:
+>>> 
+>>> 2011-09-21 10:42:40,869 INFO  monitor.ContainersMonitorImpl
+>>> (ContainersMonitorImpl.java:run(402)) - Memory usage of ProcessTree 21666
+>>> for container-id container_1316626117280_0002_01_000001 : Virtual 2260938752
+>>> bytes, limit : 2147483648 bytes; Physical 77398016 bytes, limit -1 bytes
+>>> 2011-09-21 10:42:40,869 WARN  monitor.ContainersMonitorImpl
+>>> (ContainersMonitorImpl.java:isProcessTreeOverLimit(289)) - Process tree for
+>>> container: container_1316626117280_0002_01_000001 has processes older than 1
+>>> iteration running over the configured limit. Limit=2147483648, current usage
+>>> = 2260938752
+>>> 2011-09-21 10:42:40,870 WARN  monitor.ContainersMonitorImpl
+>>> (ContainersMonitorImpl.java:run(453)) - Container
+>>> [pid=21666,containerID=container_1316626117280_0002_01_000001] is running
+>>> beyond memory-limits. Current usage : 2260938752bytes. Limit :
+>>> 2147483648bytes. Killing container.
+>>> Dump of the process-tree for container_1316626117280_0002_01_000001 :
+>>>        |- PID PPID PGRPID SESSID CMD_NAME USER_MODE_TIME(MILLIS)
+>>> SYSTEM_TIME(MILLIS) VMEM_USAGE(BYTES) RSSMEM_USAGE(PAGES) FULL_CMD_LINE
+>>>        |- 21669 21666 21666 21666 (java) 105 4 2152300544 18593 java
+>>> -Xmx512M -cp ./package/* kafka.yarn.ApplicationMaster
+>>> /home/criccomi/git/kafka-yarn/dist/kafka-streamer.tgz 2 1 1316626117280
+>>> com.linkedin.TODO 1
+>>>       |- 21666 20570 21666 21666 (bash) 0 0 108638208 303 /bin/bash -c
+>>> java -Xmx512M -cp './package/*' kafka.yarn.ApplicationMaster
+>>> /home/criccomi/git/kafka-yarn/dist/kafka-streamer.tgz 2 1 1316626117280
+>>> com.linkedin.TODO 1
+>>> 1>/tmp/logs/application_1316626117280_0002/container_1316626117280_0002_01_00
+>>> 0001/stdout
+>>> 2>/tmp/logs/application_1316626117280_0002/container_1316626117280_0002_01_00
+>>> 0001/stderr
+>>> 
+>>> 2011-09-21 10:42:40,870 INFO  monitor.ContainersMonitorImpl
+>>> (ContainersMonitorImpl.java:run(463)) - Removed ProcessTree with root 21666
+>>> 
+>>> I don't think that my AM is leaking memory. Full code paste after the break
+>>> 
+>>> 1. Do I need to release a container in my AM even if the AM receives it as
+>>> a finished container in the resource request response?
+>>> 2. Do I need to free any other resources after a resource request (e.g.
+>>> ResourceRequest, AllocateRequest, etc)?
+>>> 
+>>> Cheers,
+>>> Chris
+>>> 
+>>> 
+>>> def main(args: Array[String]) {
+>>>   // YARN will always give our ApplicationMaster
+>>>   // the first four parameters as: <package> <app id> <attempt id>
+>>> <timestamp>
+>>>   val packagePath = args(0)
+>>>   val appId = args(1).toInt
+>>>   val attemptId = args(2).toInt
+>>>   val timestamp = args(3).toLong
+>>> 
+>>>   // these are our application master's parameters
+>>>   val streamerClass = args(4)
+>>>   val tasks = args(5).toInt
+>>> 
+>>>   // TODO log params here
+>>> 
+>>>   // start the application master helper
+>>>   val conf = new Configuration
+>>>   val applicationMasterHelper = new ApplicationMasterHelper(appId,
+>>> attemptId, timestamp, conf)
+>>>     .registerWithResourceManager
+>>> 
+>>>   // start and manage the slaves
+>>>   val noReleases = List[ContainerId]()
+>>>   var runningContainers = 0
+>>> 
+>>>   // keep going forever
+>>>   while (true) {
+>>>     val nonRunningTasks = tasks - runningContainers
+>>>     val response =
+>>> applicationMasterHelper.sendResourceRequest(nonRunningTasks, noReleases)
+>>> 
+>>>     response.getAllocatedContainers.foreach(container => {
+>>>       new ContainerExecutor(packagePath, container)
+>>>         .addCommand(""java -Xmx256M -cp './package/*'
+>>> kafka.yarn.StreamingTask "" + streamerClass + "" ""
+>>>           + ""1>"" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + ""/stdout ""
+>>>           + ""2>"" + ApplicationConstants.LOG_DIR_EXPANSION_VAR +
+>>> ""/stderr"").execute(conf)
+>>>     })
+>>> 
+>>>     runningContainers += response.getAllocatedContainers.length
+>>>     runningContainers -= response.getCompletedContainersStatuses.length
+>>> 
+>>>     Thread.sleep(1000)
+>>>   }
+>>> 
+>>>   applicationMasterHelper.unregisterWithResourceManager(""SUCCESS"")
+>>> }
+>>> 
+>>> 
+>>> class ApplicationMasterHelper(iAppId: Int, iAppAttemptId: Int, lTimestamp:
+>>> Long, conf: Configuration) {
+>>> val rpc = YarnRPC.create(conf)
+>>> val appId = Records.newRecord(classOf[ApplicationId])
+>>> val appAttemptId = Records.newRecord(classOf[ApplicationAttemptId])
+>>> val rmAddress =
+>>> NetUtils.createSocketAddr(conf.get(YarnConfiguration.RM_SCHEDULER_ADDRESS,
+>>> YarnConfiguration.DEFAULT_RM_SCHEDULER_ADDRESS))
+>>> val resourceManager = rpc.getProxy(classOf[AMRMProtocol], rmAddress,
+>>> conf).asInstanceOf[AMRMProtocol]
+>>> var requestId = 0
+>>> 
+>>> appId.setClusterTimestamp(lTimestamp)
+>>> appId.setId(iAppId)
+>>> appAttemptId.setApplicationId(appId)
+>>> appAttemptId.setAttemptId(iAppAttemptId)
+>>> 
+>>> def registerWithResourceManager(): ApplicationMasterHelper = {
+>>>   val req = Records.newRecord(classOf[RegisterApplicationMasterRequest])
+>>>   req.setApplicationAttemptId(appAttemptId)
+>>>   // TODO not sure why these are blank- This is how spark does it
+>>>   req.setHost("""")
+>>>   req.setRpcPort(1)
+>>>   req.setTrackingUrl("""")
+>>>   resourceManager.registerApplicationMaster(req)
+>>>   this
+>>> }
+>>> 
+>>> def unregisterWithResourceManager(state: String): ApplicationMasterHelper
+>>> = {
+>>>   val finReq = Records.newRecord(classOf[FinishApplicationMasterRequest])
+>>>   finReq.setAppAttemptId(appAttemptId)
+>>>   finReq.setFinalState(state)
+>>>   resourceManager.finishApplicationMaster(finReq)
+>>>   this
+>>> }
+>>> 
+>>> def sendResourceRequest(containers: Int, release: List[ContainerId]):
+>>> AMResponse = {
+>>>   // TODO will need to make this more flexible for hostname requests, etc
+>>>   val request = Records.newRecord(classOf[ResourceRequest])
+>>>   val pri = Records.newRecord(classOf[Priority])
+>>>   val capability = Records.newRecord(classOf[Resource])
+>>>   val req = Records.newRecord(classOf[AllocateRequest])
+>>>   request.setHostName(""*"")
+>>>   request.setNumContainers(containers)
+>>>   pri.setPriority(1)
+>>>   request.setPriority(pri)
+>>>   capability.setMemory(128)
+>>>   request.setCapability(capability)
+>>>   req.setResponseId(requestId)
+>>>   req.setApplicationAttemptId(appAttemptId)
+>>>   req.addAllAsks(Lists.newArrayList(request))
+>>>   req.addAllReleases(release)
+>>>   requestId += 1
+>>>   // TODO we might want to return a list of container executors here
+>>> instead of AMResponses
+>>>   resourceManager.allocate(req).getAMResponse
+>>> }
+>>> }
+>>> 
+>>> 
+>>> ________________________________________
+>>> From: Vinod Kumar Vavilapalli [vinodkv@hortonworks.com]
+>>> Sent: Wednesday, September 21, 2011 10:08 AM
+>>> To: mapreduce-dev@hadoop.apache.org
+>>> Subject: Re: ApplicationMaster Memory Usage
+>>> 
+>>> Yes, the process-dump clearly tells that this is MAPREDUCE-2998.
+>>> 
+>>> +Vinod
+>>> (With a smirk to see his container-memory-monitoring code in action)
+>>> 
+>>> 
+>>> On Wed, Sep 21, 2011 at 10:26 PM, Arun C Murthy <acm@hortonworks.com>
+>>> wrote:
+>>> 
+>>>> I'll bet you are hitting MR-2998.
+>>>> 
+>>>> From the changelog:
+>>>> 
+>>>>   MAPREDUCE-2998. Fixed a bug in TaskAttemptImpl which caused it to fork
+>>>> bin/mapred too many times. Contributed by Vinod K V.
+>>>> 
+>>>> Arun
+>>>> 
+>>>> On Sep 21, 2011, at 9:52 AM, Chris Riccomini wrote:
+>>>> 
+>>>>> Hey Guys,
+>>>>> 
+>>>>> My ApplicationMaster is being killed by the NodeManager because of
+>>> memory
+>>>> consumption, and I don't understand why. I'm using -Xmx512M, and setting
+>>> my
+>>>> resource request to 2048.
+>>>>> 
+>>>>> 
+>>>>>   .addCommand(""java -Xmx512M -cp './package/*'
+>>>> kafka.yarn.ApplicationMaster "" ...
+>>>>> 
+>>>>>   ...
+>>>>> 
+>>>>>   private var memory = 2048
+>>>>> 
+>>>>>   resource.setMemory(memory)
+>>>>>   containerCtx.setResource(resource)
+>>>>>   containerCtx.setCommands(cmds.toList)
+>>>>>   containerCtx.setLocalResources(Collections.singletonMap(""package"",
+>>>> packageResource))
+>>>>>   appCtx.setApplicationId(appId)
+>>>>>   appCtx.setUser(user.getShortUserName)
+>>>>>   appCtx.setAMContainerSpec(containerCtx)
+>>>>>   request.setApplicationSubmissionContext(appCtx)
+>>>>>   applicationsManager.submitApplication(request)
+>>>>> 
+>>>>> When this runs, I see (in my NodeManager's logs):
+>>>>> 
+>>>>> 
+>>>>> 2011-09-21 09:35:19,112 INFO  monitor.ContainersMonitorImpl
+>>>> (ContainersMonitorImpl.java:run(402)) - Memory usage of ProcessTree 28134
+>>>> for container-id container_1316559026783_0003_01_000001 : Virtual
+>>> 2260938752
+>>>> bytes, limit : 2147483648 bytes; Physical 71540736 bytes, limit -1 bytes
+>>>>> 2011-09-21 09:35:19,112 WARN  monitor.ContainersMonitorImpl
+>>>> (ContainersMonitorImpl.java:isProcessTreeOverLimit(289)) - Process tree
+>>> for
+>>>> container: container_1316559026783_0003_01_000001 has processes older
+>>> than 1
+>>>> iteration running over the configured limit. Limit=2147483648, current
+>>> usage
+>>>> = 2260938752
+>>>>> 2011-09-21 09:35:19,113 WARN  monitor.ContainersMonitorImpl
+>>>> (ContainersMonitorImpl.java:run(453)) - Container
+>>>> [pid=28134,containerID=container_1316559026783_0003_01_000001] is running
+>>>> beyond memory-limits. Current usage : 2260938752bytes. Limit :
+>>>> 2147483648bytes. Killing container.
+>>>>> Dump of the process-tree for container_1316559026783_0003_01_000001 :
+>>>>>      |- PID PPID PGRPID SESSID CMD_NAME USER_MODE_TIME(MILLIS)
+>>>> SYSTEM_TIME(MILLIS) VMEM_USAGE(BYTES) RSSMEM_USAGE(PAGES) FULL_CMD_LINE
+>>>>>      |- 28134 25886 28134 28134 (bash) 0 0 108638208 303 /bin/bash -c
+>>>> java -Xmx512M -cp './package/*' kafka.yarn.ApplicationMaster 3 1
+>>>> 1316559026783 com.linkedin.TODO 1
+>>>> 
+>>> 1>/tmp/logs/application_1316559026783_0003/container_1316559026783_0003_01_00
+>>> 0001/stdout
+>>>> 
+>>> 2>/tmp/logs/application_1316559026783_0003/container_1316559026783_0003_01_00
+>>> 0001/stderr
+>>>>>      |- 28137 28134 28134 28134 (java) 92 3 2152300544 17163 java
+>>>> -Xmx512M -cp ./package/* kafka.yarn.ApplicationMaster 3 1 1316559026783
+>>>> com.linkedin.TODO 1
+>>>>> 
+>>>>> 2011-09-21 09:35:19,113 INFO  monitor.ContainersMonitorImpl
+>>>> (ContainersMonitorImpl.java:run(463)) - Removed ProcessTree with root
+>>> 28134
+>>>>> 
+>>>>> It appears that YARN is honoring my 2048 command, yet my process is
+>>>> somehow taking 2260938752 bytes. I don't think that I'm using nearly that
+>>>> much in permgen, and my heap is limited to 512. I don't have any JNI
+>>> stuff
+>>>> running (that I know of), so it's unclear to me what's going on here. The
+>>>> only thing that I can think of is that Java's Runtime exec is forking,
+>>> and
+>>>> copying its entire JVM memory footprint for the fork.
+>>>>> 
+>>>>> Has anyone seen this? Am I doing something dumb?
+>>>>> 
+>>>>> Thanks!
+>>>>> Chris
+>>>> 
+>>>> 
+>>> 
+> 
+",1
+nan,1
+nan,1
+"This is to address the containers which exit properly after spawning sub-processes themselves. We don't want to leave these sub-process-tree or else they can pillage the NM's resources.
+
+Today, we already have code to send SIGKILL to the whole process-trees (because of single sessionId resulting from  setsid) when the container is alive. We need to obtain the PID of the containers when they start and use that PID to send signal for completed containers' case also.",1
+nan,1
+nan,1
+nan,1
+nan,1
+nan,1
+nan,1
+TaskHeartbeatHandler sleeps for 'mapreduce.task.timeout' - between each check. If a task/NM goes bad immediately after starting a task - the timeout is detected in ~2x the configured timeout interval.,1
+nan,1
+nan,1
+nan,1
+nan,1
+nan,1
+" The web services currently don't support header 'Accept-Encoding: gzip'
+
+Given that the responses have a lot of duplicate data like the property names in JSON or the tag names in XML, it should
+compress very well, and would save on bandwidth and download time when fetching a potentially large response, like the
+ones from ws/v1/cluster/apps and ws/v1/history/mapreduce/jobs",1
+nan,1
+"Mainly NM has a default of 5, RM has 10 and AM also has 10 irrespective of num-slots, num-nodes and num-tasks respectively. Though ideally we want to scale according to slots/nodes/tasks, for now increasing the defaults should be enough.",1
+nan,1
+nan,1
+"When the RM has a large number of jobs, {{bin/mapred job -list}} takes a long time as it visits each AM to get information like num-maps, num-reduces etc.
+
+We should move all per-AM information to {{bin/mapred job -status}} and keep the list just a list.",1
+"MAPREDUCE-2450 introduced, or at least triggers, a significant performance regression in Hive. With MR-2450 the execution time of TestCliDriver.skewjoin goes from 2 minutes to 15 minutes. Reverting this change from the build fixes the issue.
+
+Here's the relevant query:
+
+{noformat}
+FROM src src1 JOIN src src2 ON (src1.key = src2.key)
+INSERT OVERWRITE TABLE dest_j1 SELECT src1.key, src2.value; 
+{noformat}
+
+You can reproduce this by running the following from Hive 8.0 against Hadoop built from branch-23. 
+
+{noformat}
+ant very-clean package test -Dtestcase=TestCliDriver -Dqfile=skewjoin.q
+{noformat}",1
+"Briefly, to reproduce:
+
+* Run JT with CapacityTaskScheduler [Say, Cluster max map = 8G, Cluster map = 2G]
+* Run two TTs but with varied capacity, say, one with 4 map slot, another with 3 map slots.
+* Run a job with two tasks, each demanding mem worth 4 slots at least (Map mem = 7G or so).
+* Job will begin running on TT #1, but will also end up reserving the 3 slots on TT #2 cause it does not check for the maximum limit of slots when reserving (as it goes greedy, and hopes to gain more slots in future).
+* Other jobs that could've run on the TT #2 over 3 slots are thereby blocked out due to this illogical reservation.
+
+I've not yet tested MR2 for this so feel free to weigh in if it affects MR2 as well.
+
+For MR1, I've attached a test case initially to indicate this. A fix that checks reservations vs. max slots, to follow.",1
+nan,1
+nan,1
+nan,1
+nan,1
+nan,1
+nan,1
+"When a nodemanager attempts to shutdown cleanly, it's possible for it to appear to hang due to lingering DeletionService threads.  This can occur when yarn.nodemanager.delete.debug-delay-sec is set to a relatively large value and one or more containers executes on the node shortly before the shutdown.
+
+The DeletionService is never calling {{setExecuteExistingDelayedTasksAfterShutdownPolicy()}} on the ScheduledThreadPoolExecutor, and it defaults to waiting for all scheduled tasks to complete before exiting.",1
+"The capacity scheduler configs for  maximum-applications and maximum-am-resource-percent are currently configured globally and then made proportional to each queue based on its capacity. There are times when this may not work well.  some exampless -  if you have a queue that is running on uberAM jobs, the jobs a queue is running always has a small number of containers, and then you have the opposite where in a queue with very small capacity, you may want to limit the am resources even more so you don't end up deadlocked with all your capacity being used for app masters.
+
+I think we should make those configurable on a per queue basis.",1
+nan,1
+nan,1
+"Currently the heap size for all of these is set in yarn-env.sh.  JAVA_HEAP_MAX is set to -Xmx1000m unless YARN_HEAPSIZE is set.  If it is set it will override JAVA_HEAP_MAX.  However, we do not always want to have the RM, NM, and HistoryServer with the exact same heap size.  It would be logical to have inside of yarn and mapred to set JAVA_HEAP_MAX if YARN_RESOURCEMANAGER_HEAPSIZE, YARN_NODEMANAGER_HEAPSIZE or HADOOP_JOB_HISTORYSERVER_HEAPSIZE are set respectively.  This is a bug because it is easy to configure the history server to store more entires then the heap can hold.  It is also a performance issue if we do not allow the history server to cache many entries on a large cluster.  ",1
+nan,1
+LogAggregationService adds log aggregator objects to the {{appLogAggregators}} map but never removes them.,1
+nan,1
+"When a M/R job is configured to run with some tolerance to task failures (via mapreduce.map.failures.maxpercent), then the reduce task of that job gets stuck in the shuffle phase. ",1
+nan,1
+"We saw that as a result of HADOOP-6963, one task was stuck in this
+
+Thread 23668: (state = IN_NATIVE)
+ - java.io.UnixFileSystem.getBooleanAttributes0(java.io.File) @bci=0 (Compiled frame; information may be imprecise)
+ - java.io.UnixFileSystem.getBooleanAttributes(java.io.File) @bci=2, line=228 (Compiled frame)
+ - java.io.File.exists() @bci=20, line=733 (Compiled frame)
+ - org.apache.hadoop.fs.FileUtil.getDU(java.io.File) @bci=3, line=446 (Compiled frame)
+ - org.apache.hadoop.fs.FileUtil.getDU(java.io.File) @bci=52, line=455 (Compiled frame)
+ - org.apache.hadoop.fs.FileUtil.getDU(java.io.File) @bci=52, line=455 (Compiled frame)
+....
+.... TONS MORE OF THIS SAME LINE
+ - org.apache.hadoop.fs.FileUtil.getDU(java.io.File) @bci=52, line=455 (Compiled frame)
+.....
+.....
+ - org.apache.hadoop.fs.FileUtil.getDU(java.io.File) @bci=52, line=455 (Compiled frame)
+ - org.apache.hadoop.fs.FileUtil.getDU(java.io.File) @bci=52, line=455 (Interpreted frame)
+ne=451 (Interpreted frame)
+ - org.apache.hadoop.mapred.JobLocalizer.downloadPrivateCacheObjects(org.apache.hadoop.conf.Configuration, java.net.URI[], org.apache.hadoop.fs.Path[], long[], boolean[], boolean) @bci=150, line=324 (Interpreted frame)
+ - org.apache.hadoop.mapred.JobLocalizer.downloadPrivateCache(org.apache.hadoop.conf.Configuration) @bci=40, line=349 (Interpreted frame) 51, line=383 (Interpreted frame)
+ - org.apache.hadoop.mapred.JobLocalizer.runSetup(java.lang.String, java.lang.String, org.apache.hadoop.fs.Path, org.apache.hadoop.mapred.TaskUmbilicalProtocol) @bci=46, line=477 (Interpreted frame)
+ - org.apache.hadoop.mapred.JobLocalizer$3.run() @bci=20, line=534 (Interpreted frame)
+ - org.apache.hadoop.mapred.JobLocalizer$3.run() @bci=1, line=531 (Interpreted frame)
+ - java.security.AccessController.doPrivileged(java.security.PrivilegedExceptionAction, java.security.AccessControlContext) @bci=0 (Interpreted frame)
+ - javax.security.auth.Subject.doAs(javax.security.auth.Subject, java.security.PrivilegedExceptionAction) @bci=42, line=396 (Interpreted frame)
+ - org.apache.hadoop.security.UserGroupInformation.doAs(java.security.PrivilegedExceptionAction) @bci=14, line=1082 (Interpreted frame)
+ - org.apache.hadoop.mapred.JobLocalizer.main(java.lang.String[]) @bci=266, line=530 (Interpreted frame)
+
+While all other tasks on the same node were stuck in 
+Thread 32141: (state = BLOCKED)
+ - java.lang.Thread.sleep(long) @bci=0 (Interpreted frame)
+ - org.apache.hadoop.mapred.Task.commit(org.apache.hadoop.mapred.TaskUmbilicalProtocol, org.apache.hadoop.mapred.Task$TaskReporter, org.apache.hadoop.mapreduce.OutputCommitter) @bci=24, line=980 (Compiled frame)
+ - org.apache.hadoop.mapred.Task.done(org.apache.hadoop.mapred.TaskUmbilicalProtocol, org.apache.hadoop.mapred.Task$TaskReporter) @bci=146, line=871 (Interpreted frame)
+ - org.apache.hadoop.mapred.ReduceTask.run(org.apache.hadoop.mapred.JobConf, org.apache.hadoop.mapred.TaskUmbilicalProtocol) @bci=470, line=423 (Interpreted frame)
+ - org.apache.hadoop.mapred.Child$4.run() @bci=29, line=255 (Interpreted frame)
+ - java.security.AccessController.doPrivileged(java.security.PrivilegedExceptionAction, java.security.AccessControlContext) @bci=0 (Interpreted frame)
+ - javax.security.auth.Subject.doAs(javax.security.auth.Subject, java.security.PrivilegedExceptionAction) @bci=42, line=396 (Interpreted frame)
+ - org.apache.hadoop.security.UserGroupInformation.doAs(java.security.PrivilegedExceptionAction) @bci=14, line=1082 (Interpreted frame)
+ - org.apache.hadoop.mapred.Child.main(java.lang.String[]) @bci=738, line=249 (Interpreted frame)
+
+This should never happen. A stuck task should never prevent other tasks from different jobs on the same node from committing.",1
+"When the ApplicationMaster shuts down it's supposed to remove the staging directory, assuming properties weren't set to override this behavior. During shutdown the AM tells the ResourceManager that it has finished before it cleans up the staging directory.  However upon hearing the AM has finished, the RM turns right around and kills the AM container.  If the AM is too slow, the AM will be killed before the staging directory is removed.
+
+We're seeing the AM lose this race fairly consistently on our clusters, and the lack of staging directory cleanup quickly leads to filesystem quota issues for some users.",1
+"Incorrect mappings because the Yarn RackResolver ignores rack configurations. This can be verified by inspecting the resource manager web ui that lists all the nodes, all of them show up with /default-rack regardless of the output from the script specified using net.topology.script.file.name configuration property.",1
+"The AM seems to assume that all attempts of a completed task (from a previous AM incarnation) would also be completed. There is at least one case in which this does not hold. Case being cancellation of a completed task resulting in a new running attempt.
+",1
+"We had an instance where the RM went down for more then an hour.  The application master exited with ""Could not contact RM after 360000 milliseconds""
+
+2012-04-11 10:43:36,040 INFO [AsyncDispatcher event handler] org.apache.hadoop.mapreduce.v2.app.job.impl.JobImpl: job_1333003059741_15999Job Transitioned from RUNNING to ERROR
+
+
+",1
+"2012-02-28 19:17:08,504 INFO org.apache.hadoop.mapred.Merger: Down to the last merge-pass, with 3 segments left of total size: 1969310 bytes
+2012-02-28 19:17:08,694 INFO org.apache.hadoop.mapred.Task: Task:attempt_201202272306_0794_m_000094_0 is done. And is in the process of commiting
+2012-02-28 19:18:08,774 INFO org.apache.hadoop.mapred.Task: Communication exception: java.io.IOException: Call to /127.0.0.1:35400 failed on local exception: java.nio.channels.ClosedByInterruptException
+at org.apache.hadoop.ipc.Client.wrapException(Client.java:1094)
+at org.apache.hadoop.ipc.Client.call(Client.java:1062)
+at org.apache.hadoop.ipc.WritableRpcEngine$Invoker.invoke(WritableRpcEngine.java:198)
+at $Proxy0.statusUpdate(Unknown Source)
+at org.apache.hadoop.mapred.Task$TaskReporter.run(Task.java:650)
+at java.lang.Thread.run(Thread.java:662)
+Caused by: java.nio.channels.ClosedByInterruptException
+at java.nio.channels.spi.AbstractInterruptibleChannel.end(AbstractInterruptibleChannel.java:184)
+at sun.nio.ch.SocketChannelImpl.write(SocketChannelImpl.java:341)
+at org.apache.hadoop.net.SocketOutputStream$Writer.performIO(SocketOutputStream.java:60)
+at org.apache.hadoop.net.SocketIOWithTimeout.doIO(SocketIOWithTimeout.java:142)
+at org.apache.hadoop.net.SocketOutputStream.write(SocketOutputStream.java:151)
+at org.apache.hadoop.net.SocketOutputStream.write(SocketOutputStream.java:112)
+at java.io.BufferedOutputStream.flushBuffer(BufferedOutputStream.java:65)
+at java.io.BufferedOutputStream.flush(BufferedOutputStream.java:123)
+at java.io.DataOutputStream.flush(DataOutputStream.java:106)
+at org.apache.hadoop.ipc.Client$Connection.sendParam(Client.java:769)
+at org.apache.hadoop.ipc.Client.call(Client.java:1040)
+... 4 more
+
+2012-02-28 19:18:08,825 INFO org.apache.hadoop.mapred.Task: Task 'attempt_201202272306_0794_m_000094_0' done.
+
+
+================>>>>>> SHOULD be <++++++++++++++
+2012-02-28 19:17:02,214 INFO org.apache.hadoop.mapred.Merger: Down to the last merge-pass, with 3 segments left of total size: 1974104 bytes
+2012-02-28 19:17:02,408 INFO org.apache.hadoop.mapred.Task: Task:attempt_201202272306_0794_m_000000_0 is done. And is in the process of commiting
+2012-02-28 19:17:02,519 INFO org.apache.hadoop.mapred.Task: Task 'attempt_201202272306_0794_m_000000_0' done. ",1
+"As found as part of work on MAPREDUCE-4169, it is possible for a ConcurrentModificationException to be thrown upon disk failure. DirectoryCollection hands out its internal list structure that is accessed across multiple threads. Upon disk failure its internal list is modified, invalidating all current iterators to that structure.",1
+"If no more map tasks need to be scheduled but not all have completed, the ApplicationMaster will start scheduling reducers even if the number of completed maps has not met the mapreduce.job.reduce.slowstart.completedmaps threshold.  For example, if the property is set to 1.0 all maps should complete before any reducers are scheduled.  However the reducers are scheduled as soon as the last map task is assigned to a container.  For a job with very long-running maps, a cluster with enough capacity to launch all map tasks could cause reducers to launch prematurely and waste cluster resources.
+
+Thanks to Phil Su for discovering this issue.",1
+FrameworkCounterGroup and FileSystemCounterGroup may be susceptible to a race outlined in https://issues.apache.org/jira/browse/MAPREDUCE-4226?focusedCommentId=13269657&page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-13269657 by Robert Joseph Evans.,1
+"This was found by ATM:
+
+bq. I ran a teragen with 1000 map tasks. Many task attempts failed, but after 999 of the tasks had completed, the job is now sitting forever with 1 task ""pending"".",1
+nan,1
+"if capacity scheduler capacity or max capacity set with decimal it errors:
+
+- Error starting ResourceManager
+
+java.lang.NumberFormatException: For input string: ""10.5""
+        at
+java.lang.NumberFormatException.forInputString(NumberFormatException.java:48)
+        at java.lang.Integer.parseInt(Integer.java:458)
+        at java.lang.Integer.parseInt(Integer.java:499)
+        at org.apache.hadoop.conf.Configuration.getInt(Configuration.java:713)
+        at
+org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacitySchedulerConfiguration.getCapacity(CapacitySchedulerConfiguration.java:147)
+        at
+org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.LeafQueue.<init>(LeafQueue.java:147)
+        at
+org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler.parseQueue(CapacityScheduler.java:297)
+        at
+
+0.20 used to take decimal and this could be an issue on large clusters that would have queues with small allocations.",1
+"The previously completed attempt is removed from successAttemptCompletionEventNoMap and marked OBSOLETE.
+After that, if the newly completed attempt is successful then it is added to the successAttemptCompletionEventNoMap. 
+
+This seems wrong because the newly completed attempt could be failed and thus there is no need to invalidate the successful attempt.
+One error case would be when a speculative attempt completes with killed/failed after the successful version has completed.
+",1
+nan,1
+"FairScheduler.maxTasksToAssign() can potentially return a value greater than the available slots. Currently, we rely on canAssignMaps()/canAssignReduces() to reject such requests.
+
+These additional calls can be avoided by check against the available slots in maxTasksToAssign().",1
+There is a significant (up to 3x) performance regression in shuffle (vs 0.20.2) in the Hadoop 1.x series. Most noticeable with high-end switches.,1
+There is a significant performance regression for small jobs/workflows (vs 0.20.2) in the Hadoop 1.x series. Most noticeable with Hive and Pig jobs. PigMix has an average 40% regression against 0.20.2.,1
+"Inside Fetcher.java there are a few cases where an error can happen and the corresponding map task is not marked as a fetch failure.  One of these is if the Shuffle server returns a malformed result.
+
+MAPREDUCE-3992 makes this case a lot less common, but it is still possible.  IF the shuffle handler always returns a malformed result, but a OK response the Fetcher will never stop trying to fetch those results. ",1
+"After a task goes to SUCCEEDED, FAILED/KILLED attempts are ignored.
+1. attemp1 starts
+2. speculative attempt starts
+3. attempt 1 completes - Task moves to SUCCEEDED state
+4. speculative attempt is KILLED
+5. T_ATTEMPT_KILLED is ignored.
+6. attemp1 1 fails with TOO_MANY_FETCH_FAILURES
+The job will effectively hang, since a new task attempt isn't started.",1
+"we saw a job go into the ERROR state from an invalid state transition.
+
+3,600 INFO [AsyncDispatcher event handler]
+org.apache.hadoop.mapreduce.v2.app.job.impl.TaskAttemptImpl:
+attempt_1342238829791_2501_m_007743_0 TaskAttempt Transitioned from SUCCEEDED
+to FAILED
+2012-07-16 08:49:53,600 INFO [AsyncDispatcher event handler]
+org.apache.hadoop.mapreduce.v2.app.job.impl.TaskAttemptImpl:
+attempt_1342238829791_2501_m_008850_0 TaskAttempt Transitioned from SUCCEEDED
+to FAILED
+2012-07-16 08:49:53,600 INFO [AsyncDispatcher event handler]
+org.apache.hadoop.mapreduce.v2.app.job.impl.TaskAttemptImpl:
+attempt_1342238829791_2501_m_017344_1000 TaskAttempt Transitioned from RUNNING
+to SUCCESS_CONTAINER_CLEANUP
+2012-07-16 08:49:53,601 ERROR [AsyncDispatcher event handler]
+org.apache.hadoop.mapreduce.v2.app.job.impl.TaskAttemptImpl: Can't handle this
+event at current state for attempt_1342238829791_2501_m_000027_0
+org.apache.hadoop.yarn.state.InvalidStateTransitonException: Invalid event:
+TA_TOO_MANY_FETCH_FAILURE at FAILED
+    at
+org.apache.hadoop.yarn.state.StateMachineFactory.doTransition(StateMachineFactory.java:301)
+    at
+org.apache.hadoop.yarn.state.StateMachineFactory.access$300(StateMachineFactory.java:43)
+    at
+org.apache.hadoop.yarn.state.StateMachineFactory$InternalStateMachine.doTransition(StateMachineFactory.java:443)
+    at
+org.apache.hadoop.mapreduce.v2.app.job.impl.TaskAttemptImpl.handle(TaskAttemptImpl.java:954)
+    at
+org.apache.hadoop.mapreduce.v2.app.job.impl.TaskAttemptImpl.handle(TaskAttemptImpl.java:133)
+    at
+org.apache.hadoop.mapreduce.v2.app.MRAppMaster$TaskAttemptEventDispatcher.handle(MRAppMaster.java:913)
+    at
+org.apache.hadoop.mapreduce.v2.app.MRAppMaster$TaskAttemptEventDispatcher.handle(MRAppMaster.java:905)
+    at
+org.apache.hadoop.yarn.event.AsyncDispatcher.dispatch(AsyncDispatcher.java:126)
+    at
+org.apache.hadoop.mapreduce.v2.app.recover.RecoveryService$RecoveryDispatcher.realDispatch(RecoveryService.java:285)
+    at
+org.apache.hadoop.mapreduce.v2.app.recover.RecoveryService$RecoveryDispatcher.dispatch(RecoveryService.java:281)
+    at
+org.apache.hadoop.yarn.event.AsyncDispatcher$1.run(AsyncDispatcher.java:75)
+    at java.lang.Thread.run(Thread.java:619)
+2012-07-16 08:49:53,601 INFO [AsyncDispatcher event handler]
+org.apache.hadoop.mapreduce.v2.app.job.impl.TaskAttemptImpl:
+attempt_1342238829791_2501_m_029091_1000 TaskAttempt Transitioned from RUNNING
+to SUCCESS_CONTAINER_CLEANUP
+2012-07-16 08:49:53,601 INFO [IPC Server handler 17 on 47153]
+org.apache.hadoop.mapred.TaskAttemptListenerImpl: Status update from
+attempt_1342238829791_2501_r_000461_1000
+
+
+It looks like we possibly got 2 TA_TOO_MANY_FETCH_FAILURE events. The first one moved it to FAILED and then the second one failed because no valid transition.",1
+nan,1
+nan,1
+nan,1
+nan,1
+"When running complex mapreduce jobs with many mappers and reducers (e.g. 8 mappers, 8 reducers on a 8 core machine), sometimes the following exceptions pop up in the logs during the shuffle phase:
+
+{noformat}
+WARN [570516323@qtp-2060060479-164] 2012-07-19 02:50:21,229 TaskTracker.java (line 3894) getMapOutput(attempt_201207161621_0217_m_000071_0,0) failed :
+org.mortbay.jetty.EofException
+        at org.mortbay.jetty.HttpGenerator.flush(HttpGenerator.java:787)
+        at org.mortbay.jetty.AbstractGenerator$Output.flush(AbstractGenerator.java:568)
+        at org.mortbay.jetty.HttpConnection$Output.flush(HttpConnection.java:1005)
+        at org.mortbay.jetty.AbstractGenerator$Output.write(AbstractGenerator.java:648)
+        at org.mortbay.jetty.AbstractGenerator$Output.write(AbstractGenerator.java:579)
+        at org.apache.hadoop.mapred.TaskTracker$MapOutputServlet.doGet(TaskTracker.java:3872)
+        at javax.servlet.http.HttpServlet.service(HttpServlet.java:707)
+        at javax.servlet.http.HttpServlet.service(HttpServlet.java:820)
+        at org.mortbay.jetty.servlet.ServletHolder.handle(ServletHolder.java:511)
+        at org.mortbay.jetty.servlet.ServletHandler$CachedChain.doFilter(ServletHandler.java:1166)
+        at org.apache.hadoop.http.HttpServer$QuotingInputFilter.doFilter(HttpServer.java:835)
+        at org.mortbay.jetty.servlet.ServletHandler$CachedChain.doFilter(ServletHandler.java:1157)
+        at org.mortbay.jetty.servlet.ServletHandler.handle(ServletHandler.java:388)
+        at org.mortbay.jetty.security.SecurityHandler.handle(SecurityHandler.java:216)
+        at org.mortbay.jetty.servlet.SessionHandler.handle(SessionHandler.java:182)
+        at org.mortbay.jetty.handler.ContextHandler.handle(ContextHandler.java:765)
+        at org.mortbay.jetty.webapp.WebAppContext.handle(WebAppContext.java:418)
+        at org.mortbay.jetty.handler.ContextHandlerCollection.handle(ContextHandlerCollection.java:230)
+        at org.mortbay.jetty.handler.HandlerWrapper.handle(HandlerWrapper.java:152)
+        at org.mortbay.jetty.Server.handle(Server.java:326)
+        at org.mortbay.jetty.HttpConnection.handleRequest(HttpConnection.java:542)
+        at org.mortbay.jetty.HttpConnection$RequestHandler.headerComplete(HttpConnection.java:923)
+        at org.mortbay.jetty.HttpParser.parseNext(HttpParser.java:547)
+        at org.mortbay.jetty.HttpParser.parseAvailable(HttpParser.java:212)
+        at org.mortbay.jetty.HttpConnection.handle(HttpConnection.java:404)
+        at org.mortbay.io.nio.SelectChannelEndPoint.run(SelectChannelEndPoint.java:409)
+        at org.mortbay.thread.QueuedThreadPool$PoolThread.run(QueuedThreadPool.java:582)
+Caused by: java.io.IOException: Connection reset by peer
+        at sun.nio.ch.FileDispatcher.write0(Native Method)
+        at sun.nio.ch.SocketDispatcher.write(SocketDispatcher.java:29)
+        at sun.nio.ch.IOUtil.writeFromNativeBuffer(IOUtil.java:72)
+        at sun.nio.ch.IOUtil.write(IOUtil.java:43)
+        at sun.nio.ch.SocketChannelImpl.write(SocketChannelImpl.java:334)
+        at org.mortbay.io.nio.ChannelEndPoint.flush(ChannelEndPoint.java:169)
+        at org.mortbay.io.nio.SelectChannelEndPoint.flush(SelectChannelEndPoint.java:221)
+        at org.mortbay.jetty.HttpGenerator.flush(HttpGenerator.java:721)
+{noformat}
+
+The problem looks like some network problems at first, however it turns out that hadoop shuffleInMemory sometimes deliberately closes map-output-copy connections just to reopen them a few milliseconds later, because of temporary unavailability of free memory. Because the sending side does not expect this, an exception is thrown. Additionally this leads to wasting resources on the sender side, which does more work than required serving additional requests. 
+
+",1
+nan,1
+"Upon timeout, Shell calls Java process.destroy() to terminate the spawned process. This would destroy the winutils process but not the real process spawned by winutils.
+",1
+nan,1
+nan,1
+"Currently, it is not possible to have node health scripts on Windows, as NodeHealthCheckerService tries to directly launch (CreateProcess()) .sh scripts. TestNodeHealthService test fails because of this issue also leading to a subsequent TestNodeRefresh test failure.",1
+nan,1
+"Problem reported by chackaravarthy in MAPREDUCE-4252
+
+This problem has been handled when speculative task launched for map task and other attempt got failed (not killed)
+Can the similar kind of scenario can happen in case of reduce task?
+Consider the following scenario for reduce task in case of speculation (one attempt got killed):
+1. A task attempt is started.
+2. A speculative task attempt for the same task is started.
+3. The first task attempt completes and causes the task to transition to SUCCEEDED.
+4. Then speculative task attempt will be killed because of the completion of first attempt.
+As a result, internal error will be thrown from this attempt (TaskImpl.MapRetroactiveKilledTransition) and hence task attempt failure leads to job failure.
+TaskImpl.MapRetroactiveKilledTransition
+if (!TaskType.MAP.equals(task.getType())) {
+        LOG.error(""Unexpected event for REDUCE task "" + event.getType());
+        task.internalError(event.getType());
+      }
+So, do we need to have following code in MapRetroactiveKilledTransition also just like in MapRetroactiveFailureTransition.
+if (event instanceof TaskTAttemptEvent) {
+        TaskTAttemptEvent castEvent = (TaskTAttemptEvent) event;
+        if (task.getState() == TaskState.SUCCEEDED &&
+            !castEvent.getTaskAttemptID().equals(task.successfulAttempt)) {
+          // don't allow a different task attempt to override a previous
+          // succeeded state
+          return TaskState.SUCCEEDED;
+        }
+      }
+please check whether this is a valid case and give your suggestion.",1
+nan,1
+For backwards compatibility we recently added made is so we would unjar the job.jar and add anything to the classpath in the lib directory of that jar.  But this also slows job startup down a lot if the jar is large.  We should only unjar it if actually doing so would add something new to the classpath.,1
+nan,1
+"The job history file manager creates a threadpool with core size 1 thread, max pool size 3.   It never goes beyond 1 thread though because its using a LinkedBlockingQueue which doesn't have a max size. 
+
+    void start() {
+      executor = new ThreadPoolExecutor(1, 3, 1,
+          TimeUnit.HOURS, new LinkedBlockingQueue<Runnable>());
+    }
+
+According to the ThreadPoolExecutor java doc page it only increases the number of threads when the queue is full. Since the queue we are using has no max size it never fills up and we never get more then 1 thread. ",1
+"The main History Server page with the default settings of 20,000 jobs can cause browsers to think that the JS on the page is stuck and ask you if you want to kill it. This is a big usability problem.",1
+"TaskAttemptListenerImpl implements getMapCompletionEvents by calling Job.getTaskAttemptCompletionEvents with the same fromEvent and maxEvents passed in from the reducer and then filtering the result for just map events. We can't filter the task completion event list and expect the caller's ""window"" into the list to match up.  As soon as a reducer event appears in the list it means we are redundantly sending map completion events that were already seen by the reducer.
+
+Worst case the reducer will hang if all of the events in the requested window are reducer events.  In that case zero events will be reported back to the caller and it won't bump up fromEvent on the next call.  Reducer then never sees the final map completion events needed to complete the shuffle. This could happen in a case where all maps complete, more than MAX_EVENTS reducers complete consecutively, but some straggling reducers get fetch failures and cause a map to be restarted.",1
+"The following was noticed on a mr job running on hadoop 1.1.0
+
+1. Start an mr job with 1 mapper
+
+2. Wait for a min
+
+3. Kill the first attempt of the mapper and then subsequently kill the other 3 attempts in order to fail the job
+
+The time taken to kill the task grew exponentially.
+
+1st attempt was killed immediately.
+2nd attempt took a little over a min
+3rd attempt took approx. 20 mins
+4th attempt took around 3 hrs.
+
+The command used to kill the attempt was ""hadoop job -fail-task""
+
+Note that the command returned immediately as soon as the fail attempt was accepted but the time the attempt was actually killed was as stated above.
+",1
+"We found some jobs were stuck in KILL_WAIT for days on end. The RM shows them as RUNNING. When you go to the AM, it shows it in the KILL_WAIT state, and a few maps running. All these maps were scheduled on nodes which are now in the RM's Lost nodes list. The running maps are in the FAIL_CONTAINER_CLEANUP state",1
+nan,1
+"If LocalContainerAllocator has trouble communicating with the RM it can end up retrying forever if the nature of the error is not a YarnException.
+
+This can be particulary bad if the connection went down because the cluster was reset such that the RM and NM have lost track of the process and therefore nothing else will eventually kill the process.  In this scenario, the looping AM continues to pelt the RM with connection requests every second using a stale token, and the RM logs the SASL exceptions over and over.",1
+"We ran into an instance where many nodes on a cluster ran out of disk space because the nodemanager logs were huge.  Examining the logs showed many, many shuffle errors due to either ClosedChannelException or IOException from ""Connection reset by peer"" or ""Broken pipe"".
+",1
+nan,1
+"The AM calls the output committer's {{commitJob}} method synchronously during JobImpl state transitions, which means the JobImpl write lock is held the entire time the job is being committed.  Holding the write lock prevents the RM allocator thread from heartbeating to the RM.  Therefore if committing the job takes too long (e.g.: the job has tons of files to commit and/or the namenode is bogged down) then the AM appears to be unresponsive to the RM and the RM kills the AM attempt.",1
+nan,1
+"When a task is launched and spends more than 5 minutes localizing files, the AM will kill the task due to ping timeout.  The AM's TaskHeartbeatHandler currently tracks tasks via a progress timeout and a ping timeout.  The progress timeout can be controlled via mapreduce.task.timeout and even disabled by setting the property to 0.  The ping timeout, however, is hardcoded to 5 minutes and cannot be configured.  Therefore if the task takes too long localizing, it never gets running in order to ping back to the AM and the AM kills it due to ping timeout.",1
+"If an NM goes down and the AM still tries to launch a container on it the ContainerLauncherImpl can get stuck in an RPC timeout.  At the same time the RM may notice that the NM has gone away and inform the AM of this, this triggers a TA_FAILMSG.  If the TA_FAILMSG arrives at the TaskAttemptImpl before the TA_CONTAINER_LAUNCH_FAILED message then the task attempt will try to kill the container, but the ContainerLauncherImpl will not send back a TA_CONTAINER_CLEANED event causing the attempt to be stuck.",1
+"Saw an instance where the shuffle caused multiple reducers in a job to hang.  It looked similar to the problem described in MAPREDUCE-3721, where the fetchers were all being told to WAIT by the MergeManager but no merge was taking place.",1
+"Recently saw an AM that failed and tried to recover, but the subsequent attempt quickly exited with its own failure during recovery:
+
+{noformat}
+2012-12-05 02:33:36,752 FATAL [AsyncDispatcher event handler] org.apache.hadoop.yarn.event.AsyncDispatcher: Error in dispatcher thread
+java.lang.ClassCastException: org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl cannot be cast to org.apache.hadoop.mapred.TaskAttemptContext
+	at org.apache.hadoop.mapred.OutputCommitter.recoverTask(OutputCommitter.java:284)
+	at org.apache.hadoop.mapreduce.v2.app.recover.RecoveryService$InterceptingEventHandler.handle(RecoveryService.java:361)
+	at org.apache.hadoop.mapreduce.v2.app.job.impl.TaskAttemptImpl$ContainerAssignedTransition.transition(TaskAttemptImpl.java:1211)
+	at org.apache.hadoop.mapreduce.v2.app.job.impl.TaskAttemptImpl$ContainerAssignedTransition.transition(TaskAttemptImpl.java:1177)
+	at org.apache.hadoop.yarn.state.StateMachineFactory$SingleInternalArc.doTransition(StateMachineFactory.java:357)
+	at org.apache.hadoop.yarn.state.StateMachineFactory.doTransition(StateMachineFactory.java:298)
+	at org.apache.hadoop.yarn.state.StateMachineFactory.access$300(StateMachineFactory.java:43)
+	at org.apache.hadoop.yarn.state.StateMachineFactory$InternalStateMachine.doTransition(StateMachineFactory.java:443)
+	at org.apache.hadoop.mapreduce.v2.app.job.impl.TaskAttemptImpl.handle(TaskAttemptImpl.java:958)
+	at org.apache.hadoop.mapreduce.v2.app.job.impl.TaskAttemptImpl.handle(TaskAttemptImpl.java:135)
+	at org.apache.hadoop.mapreduce.v2.app.MRAppMaster$TaskAttemptEventDispatcher.handle(MRAppMaster.java:926)
+	at org.apache.hadoop.mapreduce.v2.app.MRAppMaster$TaskAttemptEventDispatcher.handle(MRAppMaster.java:918)
+	at org.apache.hadoop.yarn.event.AsyncDispatcher.dispatch(AsyncDispatcher.java:126)
+	at org.apache.hadoop.mapreduce.v2.app.recover.RecoveryService$RecoveryDispatcher.realDispatch(RecoveryService.java:285)
+	at org.apache.hadoop.mapreduce.v2.app.recover.RecoveryService$RecoveryDispatcher.dispatch(RecoveryService.java:281)
+	at org.apache.hadoop.yarn.event.AsyncDispatcher$1.run(AsyncDispatcher.java:75)
+	at java.lang.Thread.run(Thread.java:619)
+2012-12-05 02:33:36,752 INFO [AsyncDispatcher event handler] org.apache.hadoop.yarn.event.AsyncDispatcher: Exiting, bbye..
+{noformat}
+
+The RM then launched a third AM attempt which succeeded. The third attempt saw basically no progress after parsing the history file from the second attempt and ran the job again from scratch.",1
+nan,1
+nan,1
+nan,1
+nan,1
+The CombineFileInputFormat split generation logic tries to group blocks by node in order to create splits. It iterates through the nodes and creates splits on them until there aren't enough blocks left on a node that can be grouped into a valid split. If the first few nodes have a lot of blocks on them then they can end up getting a disproportionately large share of the total number of splits created. This can result in poor locality of maps. This problem is likely to happen on small clusters where its easier to create a skew in the distribution of blocks on nodes.,1
+"Say the MR AppMaster asks the RM for 3 containers on nodes n1, n2 and n3. There are 10 node n1-n10 in the same rack. The RM can give it allocated containers in the list order n5, n2, n1. The way AM map->container assignment happens, the AM will try to assign node local maps to n5, failing which it will assign rack local maps to n5. These rack local maps could be node local on n2 and n1 and would have been assigned to containers on n1 and n2 if the AM had not made an early rack local match for them on n5. This can lead to poor locality.",1
+nan,1
+nan,1
+"In one of my testing that when I set mapreduce.task.io.sort.factor to 1, all the maps hang and will never end. But the CPU usage for each node are very high and until killed by the app master when time out comes, and the job failed. 
+
+I traced the problem and found out that all the maps hangs on the final merge phase.
+
+The while loop in computeBytesInMerges will never end with a factor of 1:
+
+int f = 1; //in my case
+int n = 16; //in my case
+while (n > f || considerFinalMerge) {
+  ...
+
+  n -= (f-1);
+  f = factor;
+}
+
+As the f-1 will equals 0 and n will always be 16 and the while runs for ever.",1
+"The job client may acquire a history server token during job submission.  The renewer is specified in a config value that the user must supply (for new api, a bit different for old api).  If this value is not the RM's principal, then the RM cannot renew the token and long running jobs will fail.  Since the token is implicitly acquired for the job, the HS token's renewer should always be the RM's principal.",1
+"Since MAPREDUCE-3028 only added timeout limitation to MRv2 job end notification, please add it to MRv1 job end notification.
+
+",1
+"We've seen issues with large jobs (e.g.: 13,000 maps and 3,500 reduces) where reducers fail to connect back to the AM after being launched due to connection timeout.  Looking at stack traces of the AM during this time we see a lot of IPC servers stuck waiting for a lock to get the application ID while type converting the map completion events.  What's odd is that normally getting the application ID should be very cheap, but in this case we're type-converting thousands of map completion events for *each* reducer connecting.  That means we end up type-converting the map completion events over 45 million times during the lifetime of the example job (13,000 * 3,500).
+
+We either need to make the type conversion much cheaper (i.e.: lockless or at least read-write locked) or, even better, store the completion events in a form that does not require type conversion when serving them up to reducers.",1
+nan,1
+nan,1
+nan,1
+nan,1
+The ShuffleHandler does not have any configurable limits to the number of outstanding connections allowed.  Therefore a node with many map outputs and many reducers in the cluster trying to fetch those outputs can exhaust a nodemanager out of file descriptors.,1
+"Saw an MRAppMaster with a 3G heap OOM.  Upon investigating another instance of it running, we saw the UI in a weird state where the task table and task attempt tables in the job overview page weren't consistent.  The AM log showed the AsyncDispatcher had hundreds of thousands of events in the event queue, and jstacks showed it spending a lot of time in fetch failure processing.  It turns out fetch failure processing is currently *very* expensive, with a triple {{for}} loop where the inner loop is calling the quite-expensive {{TaskAttempt.getReport}}.  That function ends up type-converting the entire task report, counters and all, and performing locale conversions among other things.  It does this for every reduce task in the job, for every map task that failed.  And when it's done building up the large task report, it pulls out one field, the phase, then throws the report away.
+
+While the AM is busy processing fetch failures, tasks attempts are continuing to send events to the AM including memory-expensive events like status updates which include the counters.  These back up in the AsyncDispatcher event queue and eventually even an AM with a large heap size will run out of memory and crash or expire because it thrashes in garbage collect.",1
+"When a fetch failure happens, if the socket has already ""connected"" it is only counted against the first map task.  But most of the time it is because of an issue with the Node itself, not the individual map task, and as such all failures when trying to initiate the connection should count against all of the tasks.
+
+This caused a particularly unfortunate job to take an hour an a half longer then it needed to.",1
+"In current code, timeout is not specified when JobTracker (JobEndNotifier) calls into the notification URL. When the given URL points to a server that will not respond for a long time, job notifications are completely stuck (given that we have only a single thread processing all notifications). We've seen this cause noticeable delays in job execution in components that rely on job end notifications (like Oozie workflows). 
+
+I propose we introduce a configurable timeout option and set a default to a reasonably small value.
+
+If we want, we can also introduce a configurable number of workers processing the notification queue (not sure if this is needed though at this point).
+
+I will prepare a patch soon. Please comment back.",1
+The goal of YARN-486 was to make AMs just pass information encapsulated in Container along to NM instead of doing it themselves by duplicating information. We still do not do this pass-through as intended as YARN-486 avoided the individual field duplication but failed to avoid the duplication of container itself.,1
+JT can show the same job multiple times in Retired Jobs section since the RetireJobs thread has a bug which adds the same job multiple times to collection of retired jobs.,1
+"The computation in the above mentioned class-method is below:
+
+{code}
+      long estimate = Math.round(((double)inputSize * 
+          completedMapsOutputSize * 2.0)/completedMapsInputSize);
+{code}
+
+Given http://docs.oracle.com/javase/6/docs/api/java/lang/Math.html#round(double), its possible that the returned estimate could be Long.MAX_VALUE if completedMapsInputSize is determined to be zero.
+
+This can be proven with a simple code snippet:
+
+{code}
+class Foo {
+    public static void main(String... args) {
+        long inputSize = 600L + 2;
+        long estimate = Math.round(((double)inputSize *
+                              1L * 2.0)/0L);
+        System.out.println(estimate);
+    }
+}
+{code}
+
+The above conveniently prints out: {{9223372036854775807}}, which is Long.MAX_VALUE (or 8 Exbibytes per MapReduce).",1
+"When a reducer is fetching multiple compressed map outputs from a host, the fetcher can get out-of-sync with the IFileInputStream, causing several of the maps to fail to fetch.
+
+This occurs because decompressors can return all the decompressed bytes before actually processing all the bytes in the compressed stream (due to checksums or other trailing data that we ignore). In the unfortunate case where these extra bytes cross an io.file.buffer.size boundary, some extra bytes will be left over and the next map_output will not fetch correctly (usually due to an invalid map_id).
+
+This scenario is not typically fatal to a job because the failure is charged to the map_output immediately following the ""bad"" one and the subsequent retry will normally work. ",1
+"When a job is completed, closeAllForUGI is called to close all the cached FileSystems in the FileSystem cache.  However, the CleanupQueue may run after this occurs and call FileSystem.get() to delete the staging directory, adding a FileSystem to the cache that will never be closed.
+
+People on the user-list have reported this causing their JobTrackers to OOME every two weeks.",1
+"{code:xml}
+2013-06-26 11:39:50,128 ERROR [AsyncDispatcher event handler] org.apache.hadoop.mapreduce.v2.app.job.impl.JobImpl: Can't handle this event at current state
+org.apache.hadoop.yarn.state.InvalidStateTransitonException: Invalid event: JOB_TASK_ATTEMPT_COMPLETED at SUCCEEDED
+	at org.apache.hadoop.yarn.state.StateMachineFactory.doTransition(StateMachineFactory.java:301)
+	at org.apache.hadoop.yarn.state.StateMachineFactory.access$300(StateMachineFactory.java:43)
+	at org.apache.hadoop.yarn.state.StateMachineFactory$InternalStateMachine.doTransition(StateMachineFactory.java:443)
+	at org.apache.hadoop.mapreduce.v2.app.job.impl.JobImpl.handle(JobImpl.java:720)
+	at org.apache.hadoop.mapreduce.v2.app.job.impl.JobImpl.handle(JobImpl.java:119)
+	at org.apache.hadoop.mapreduce.v2.app.MRAppMaster$JobEventDispatcher.handle(MRAppMaster.java:962)
+	at org.apache.hadoop.mapreduce.v2.app.MRAppMaster$JobEventDispatcher.handle(MRAppMaster.java:958)
+	at org.apache.hadoop.yarn.event.AsyncDispatcher.dispatch(AsyncDispatcher.java:128)
+	at org.apache.hadoop.yarn.event.AsyncDispatcher$1.run(AsyncDispatcher.java:77)
+	at java.lang.Thread.run(Thread.java:662)
+{code}
+
+{code:xml}
+2013-06-26 11:39:50,129 ERROR [AsyncDispatcher event handler] org.apache.hadoop.mapreduce.v2.app.job.impl.JobImpl: Can't handle this event at current state
+org.apache.hadoop.yarn.state.InvalidStateTransitonException: Invalid event: JOB_MAP_TASK_RESCHEDULED at SUCCEEDED
+	at org.apache.hadoop.yarn.state.StateMachineFactory.doTransition(StateMachineFactory.java:301)
+	at org.apache.hadoop.yarn.state.StateMachineFactory.access$300(StateMachineFactory.java:43)
+	at org.apache.hadoop.yarn.state.StateMachineFactory$InternalStateMachine.doTransition(StateMachineFactory.java:443)
+	at org.apache.hadoop.mapreduce.v2.app.job.impl.JobImpl.handle(JobImpl.java:720)
+	at org.apache.hadoop.mapreduce.v2.app.job.impl.JobImpl.handle(JobImpl.java:119)
+	at org.apache.hadoop.mapreduce.v2.app.MRAppMaster$JobEventDispatcher.handle(MRAppMaster.java:962)
+	at org.apache.hadoop.mapreduce.v2.app.MRAppMaster$JobEventDispatcher.handle(MRAppMaster.java:958)
+	at org.apache.hadoop.yarn.event.AsyncDispatcher.dispatch(AsyncDispatcher.java:128)
+	at org.apache.hadoop.yarn.event.AsyncDispatcher$1.run(AsyncDispatcher.java:77)
+	at java.lang.Thread.run(Thread.java:662)
+{code}",1
+nan,1
+nan,1
+"We are using hadoop-2.0.0+1357-1.cdh4.3.0.p0.21 with MRv1. After upgrade from 4.1.2 to 4.3.0, I have noticed some performance deterioration in our MR job in the Reduce phase. The MR job has usually 10 000 map tasks (10 000 files on input each about 100MB) and 6 000 reducers (one reducer per table region). I was trying to figure out what at which phase the slow down appears (firstly I suspected that the slow gathering of the 10000 map output files is the culprit) and found out that the problem is not reading the map output (the shuffle) but the sort/merge phase that follows - the last and actual reduce phase is fast. I have tried to up the io.sort.factor because I thought the lots of small files are being merged on disk, but again upping that to 1000 didnt do any difference. I have then printed the stack trace and found out that the problem is initialization of the org.apache.hadoop.mapred.IFileInputStream namely the creation of the Configuration object which is not propagated along from earlier context, see the stack trace:
+
+Thread 13332: (state = IN_NATIVE)
+ - java.io.UnixFileSystem.getBooleanAttributes0(java.io.File) @bci=0 (Compiled frame; information may be imprecise)
+ - java.io.UnixFileSystem.getBooleanAttributes(java.io.File) @bci=2, line=228 (Compiled frame)
+ - java.io.File.exists() @bci=20, line=733 (Compiled frame)
+ - sun.misc.URLClassPath$FileLoader.getResource(java.lang.String, boolean) @bci=136, line=999 (Compiled frame)
+ - sun.misc.URLClassPath$FileLoader.findResource(java.lang.String, boolean) @bci=3, line=966 (Compiled frame)
+ - sun.misc.URLClassPath.findResource(java.lang.String, boolean) @bci=17, line=146 (Compiled frame)
+ - java.net.URLClassLoader$2.run() @bci=12, line=385 (Compiled frame)
+ - java.security.AccessController.doPrivileged(java.security.PrivilegedAction, java.security.AccessControlContext) @bci=0 (Compiled frame)
+ - java.net.URLClassLoader.findResource(java.lang.String) @bci=13, line=382 (Compiled frame)
+ - java.lang.ClassLoader.getResource(java.lang.String) @bci=30, line=1002 (Compiled frame)
+ - java.lang.ClassLoader.getResourceAsStream(java.lang.String) @bci=2, line=1192 (Compiled frame)
+ - javax.xml.parsers.SecuritySupport$4.run() @bci=26, line=96 (Compiled frame)
+ - java.security.AccessController.doPrivileged(java.security.PrivilegedAction) @bci=0 (Compiled frame)
+ - javax.xml.parsers.SecuritySupport.getResourceAsStream(java.lang.ClassLoader, java.lang.String) @bci=10, line=89 (Compiled frame)
+ - javax.xml.parsers.FactoryFinder.findJarServiceProvider(java.lang.String) @bci=38, line=250 (Interpreted frame)
+ - javax.xml.parsers.FactoryFinder.find(java.lang.String, java.lang.String) @bci=273, line=223 (Interpreted frame)
+ - javax.xml.parsers.DocumentBuilderFactory.newInstance() @bci=4, line=123 (Compiled frame)
+ - org.apache.hadoop.conf.Configuration.loadResource(java.util.Properties, org.apache.hadoop.conf.Configuration$Resource, boolean) @bci=16, line=1890 (Compiled frame)
+ - org.apache.hadoop.conf.Configuration.loadResources(java.util.Properties, java.util.ArrayList, boolean) @bci=49, line=1867 (Compiled frame)
+ - org.apache.hadoop.conf.Configuration.getProps() @bci=43, line=1785 (Compiled frame)
+ - org.apache.hadoop.conf.Configuration.get(java.lang.String) @bci=35, line=712 (Compiled frame)
+ - org.apache.hadoop.conf.Configuration.getTrimmed(java.lang.String) @bci=2, line=731 (Compiled frame)
+ - org.apache.hadoop.conf.Configuration.getBoolean(java.lang.String, boolean) @bci=2, line=1047 (Interpreted frame)
+ - org.apache.hadoop.mapred.IFileInputStream.<init>(java.io.InputStream, long, org.apache.hadoop.conf.Configuration) @bci=111, line=93 (Interpreted frame)
+ - org.apache.hadoop.mapred.IFile$Reader.<init>(org.apache.hadoop.conf.Configuration, org.apache.hadoop.fs.FSDataInputStream, long, org.apache.hadoop.io.compress.CompressionCodec, org.apache.hadoop.mapred.Counters$Counter) @bci=60, line=303 (Interpreted frame)
+ - org.apache.hadoop.mapred.IFile$InMemoryReader.<init>(org.apache.hadoop.mapred.RamManager, org.apache.hadoop.mapred.TaskAttemptID, byte[], int, int) @bci=11, line=480 (Interpreted frame)
+ - org.apache.hadoop.mapred.ReduceTask$ReduceCopier.createInMemorySegments(java.util.List, long) @bci=133, line=2416 (Interpreted frame)
+ - org.apache.hadoop.mapred.ReduceTask$ReduceCopier.createKVIterator() @bci=669, line=2530 (Interpreted frame)
+ - org.apache.hadoop.mapred.ReduceTask.run(org.apache.hadoop.mapred.JobConf, org.apache.hadoop.mapred.TaskUmbilicalProtocol) @bci=513, line=425 (Interpreted frame)
+ - org.apache.hadoop.mapred.Child$4.run() @bci=29, line=268 (Interpreted frame)
+ - java.security.AccessController.doPrivileged(java.security.PrivilegedExceptionAction, java.security.AccessControlContext) @bci=0 (Interpreted frame)
+ - javax.security.auth.Subject.doAs(javax.security.auth.Subject, java.security.PrivilegedExceptionAction) @bci=42, line=396 (Interpreted frame)
+ - org.apache.hadoop.security.UserGroupInformation.doAs(java.security.PrivilegedExceptionAction) @bci=14, line=1408 (Interpreted frame)
+ - org.apache.hadoop.mapred.Child.main(java.lang.String[]) @bci=776, line=262 (Interpreted frame)
+
+
+A blank configuration object is created at IFileInputStream. I have made a test and found out that this operation costs about 10-15ms depending on the load on the system, because it goes to the local FS to load the properties!!! This is to my opinion a bug since in the context the configuration (of the job) is known and could be reused at that point. My problem (and every others who has big number of reducer and mapper tasks) is that for 10K map taks it does 10000 x 15 = 150 seconds just to find out that there is nothing to sort. The overhead should be normally zero. 
+
+At this moment, the 10-15ms problem is amplified by 6 000 reducers so the bottom line is that my reduce phase is at least 1.6 hours longer than it should be.",1
+nan,1
+nan,1
+"During recovery, the task attempt log dir symlink from the prior run might still exist.  If it does, then the recovered attempt will fail while trying to create a symlink at that path.
+",1
+nan,1
+"MapReduce jobs also produce some invisible files such as _SUCCESS, even when the output format is MapFileOutputFormat. MapFileOutputFormat#getReaders however reads the entire content of the job output, assming that they are MapFiles.
+{code}
+Path[] names = FileUtil.stat2Paths(fs.listStatus(dir));
+{code}
+It should use a filter to skip the files that start with ""."" or ""_"".
+",1
+nan,1
+nan,1
+"Map only job (randomwriter, randomtextwriter) restarts from scratch [0% map 0% reduce] after RM restart.
+It should resume from the last state when AM restarted.",1
+nan,1
+nan,1
+"MergeManagerImpl#close adds the contents of inMemoryMergedMapOutputs and inMemoryMapOutputs to a list of map outputs that is subsequently processed, but it does not clear those sets.  This prevents some of the map outputs from being garbage collected and significantly reduces the memory available for the subsequent reduce phase.",1
+nan,1
+"MergeManagerImpl#close adds the contents of inMemoryMergedMapOutputs and inMemoryMapOutputs to a list of map outputs that is subsequently processed, but it does not clear those sets.  This prevents some of the map outputs from being garbage collected and significantly reduces the memory available for the subsequent reduce phase.
+
+This was fixed for trunk and branch-2 by MAPREDUCE-5493, but that has since been closed after 2.1.1 released.  This JIRA tracks backporting the fix to branch-0.23 as well.",1
+"Calling JobClient#getJob causes the job conf file to be loaded twice, once in the constructor of JobClient.NetworkedJob and once in Cluster#getJob.  We should remove the former.
+
+MAPREDUCE-5001 was meant to fix a race that was causing problems in Hive tests, but the problem persists because it only fixed one of the places where the job conf file is loaded.",1
+nan,1
+"I have come across an issue with CombineFileInputFormat. Actually I ran a hive query on approx 1.2 GB data with CombineHiveInputFormat which internally uses CombineFileInputFormat. My cluster size is 9 datanodes and max.split.size is 256 MB
+When I ran this query with replication factor 9, hive consistently creates all 6 rack-local tasks and with replication factor 3 it creates 5 rack-local and 1 data local tasks. 
+
+ When replication factor is 9 (equal to cluster size), all the tasks should be data-local as each datanode contains all the replicas of the input data, but that is not happening i.e all the tasks are rack-local. 
+
+When I dug into CombineFileInputFormat.java code in getMoreSplits method, I found the issue with the following snippet (specially in case of higher replication factor)
+
+{code:title=CombineFileInputFormat.java|borderStyle=solid}
+for (Iterator<Map.Entry<String,
+         List<OneBlockInfo>>> iter = nodeToBlocks.entrySet().iterator();
+         iter.hasNext();) {
+       Map.Entry<String, List<OneBlockInfo>> one = iter.next();
+      nodes.add(one.getKey());
+      List<OneBlockInfo> blocksInNode = one.getValue();
+
+      // for each block, copy it into validBlocks. Delete it from
+      // blockToNodes so that the same block does not appear in
+      // two different splits.
+      for (OneBlockInfo oneblock : blocksInNode) {
+        if (blockToNodes.containsKey(oneblock)) {
+          validBlocks.add(oneblock);
+          blockToNodes.remove(oneblock);
+          curSplitSize += oneblock.length;
+
+          // if the accumulated split size exceeds the maximum, then
+          // create this split.
+          if (maxSize != 0 && curSplitSize >= maxSize) {
+            // create an input split and add it to the splits array
+            addCreatedSplit(splits, nodes, validBlocks);
+            curSplitSize = 0;
+            validBlocks.clear();
+          }
+        }
+      }
+{code}
+
+First node in the map nodeToBlocks has all the replicas of input file, so the above code creates 6 splits all with only one location. Now if JT doesn't schedule these tasks on that node, all the tasks will be rack-local, even though all the other datanodes have all the other replicas.",1
+"The only way pendingSpeculations is used:
+{code}
+     // If the task is already known to be speculation-bait, don't do anything   
+      if (pendingSpeculations.get(task) != null) {                                
+        if (pendingSpeculations.get(task).get()) {                                
+          return;                                                                 
+        }                                                                         
+      } 
+{code}",1
+nan,1

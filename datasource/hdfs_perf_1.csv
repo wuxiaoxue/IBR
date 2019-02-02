@@ -1,0 +1,1053 @@
+﻿Namenode asks a datanode to delete blocks only if datanode is not asked to transfer a block. Namenode should send both the blocks to transfer and to delete. The problem gets worse if configured heartbeat is longer.,1
+"I did a simple experiment of shooting down one node in the cluster and measure the time taken to replicate the under-replicated blocks.~30000 blocks were under replicated == ~400 / node should take 200 minutes to replicate completely given 1 minute heartbeat interval.My findings: it took around 220 minutes, which is reasonable.Bug: Replication is coupled with heartbeat. Heartbeat interval is based on how much a namenode can handle. Repliaction should be based on how much a datanode can handle.So given the default heartbeat interval of 20 seconds, we computed datanodes can handle 2 replications in that interval based on which Namenodes give 2 blocks per heartbeat to replicate.What we propose is to keep the 20second/2blocks constant and hence a datanode coming in with a heartbeat of 1 minute interval should be given 6 blocks to replicate per heartbeat. In this case instead on taking 200 minutes it should take 200/3 ~1 hour to replicate the entire node.",1
+"Heapsize was set to 1G.It'll be nice if dfs client doesn't require that much memory when listing the directory.
+Exception in thread ""IPC Client connection to namenode/11.11.11.111:1111"" java.lang.OutOfMemoryError: GC overhead limit exceeded
+at java.util.regex.Pattern.compile(Pattern.java:846)at java.lang.String.replace(String.java:2208)at org.apache.hadoop.fs.Path.normalizePath(Path.java:147)at org.apache.hadoop.fs.Path.initialize(Path.java:137)at org.apache.hadoop.fs.Path.<init>(Path.java:126)at org.apache.hadoop.dfs.DFSFileInfo.readFields(DFSFileInfo.java:141)at org.apache.hadoop.io.ObjectWritable.readObject(ObjectWritable.java:230) at org.apache.hadoop.io.ObjectWritable.readObject(ObjectWritable.java:166)at org.apache.hadoop.io.ObjectWritable.readObject(ObjectWritable.java:214)at org.apache.hadoop.io.ObjectWritable.readFields(ObjectWritable.java:61)at org.apache.hadoop.ipc.Client$Connection.run(Client.java:273)Exception in thread ""main"" java.lang.OutOfMemoryError: GC overhead limit exceeded at java.util.Arrays.copyOfRange(Arrays.java:3209) at java.lang.String.<init>(String.java:216)at java.lang.StringBuffer.toString(StringBuffer.java:585) at java.net.URI.toString(URI.java:1907) at java.net.URI.<init>(URI.java:732)
+at org.apache.hadoop.fs.Path.initialize(Path.java:137)at org.apache.hadoop.fs.Path.<init>(Path.java:126)at org.apache.hadoop.fs.Path.makeQualified(Path.java:296)at rg.apache.hadoop.dfs.DfsPath.<init>(DfsPath.java:35)a org.apache.hadoop.dfs.DistributedFileSystem.listPaths(DistributedFileSystem.java:181)at org.apache.hadoop.fs.FsShell.ls(FsShell.java:405)at org.apache.hadoop.fs.FsShell.ls(FsShell.java:423)at org.apache.hadoop.fs.FsShell.ls(FsShell.java:423)at org.apache.hadoop.fs.FsShell.ls(FsShell.java:423)
+at org.apache.hadoop.fs.FsShell.ls(FsShell.java:399)at org.apache.hadoop.fs.FsShell.doall(FsShell.java:1054)at org.apache.hadoop.fs.FsShell.run(FsShell.java:1244)at org.apache.hadoop.util.ToolBase.doMain(ToolBase.java:187)at org.apache.hadoop.fs.FsShell.main(FsShell.java:1333)",1
+"9/27 update: uploaded the logs, with hopefully all the bits that should be examined. If other things are needed, just let me know. Note that all the paths refer to 0.18.1. This is still an 18.0 installation using the 18.0 core jar, just installed to a non-standard location.
+
+9/26 update: we have successfully reproduced this using Hadoop 0.18 as well. The problem happens on both our own network infrastructure as well as on an Amazon EC2 cluster running CentOS5 images. I'll be attaching the logs Raghu asked for shortly.
+
+A job that used to run correctly on our grid (in 0.15.0) now fails. The failure occurs after the map phase is complete, and about 2/3rds of the way through the reduce phase.   This job is processing a modest amount of input data (approximately 220G)
+
+When the error occurs the nodes hosting DataNodes have literally thousands of open socket connections on them.  The DataNode instances are holding large amounts of memory.  Sometimes the DataNodes crash or exit, other times they continue to run.
+
+The error which gets kicked out from the application perspective is:
+
+08/05/27 11:30:08 INFO mapred.JobClient: map 100% reduce 89%
+08/05/27 11:30:41 INFO mapred.JobClient: map 100% reduce 90%
+08/05/27 11:32:45 INFO mapred.JobClient: map 100% reduce 86%
+08/05/27 11:32:45 INFO mapred.JobClient: Task Id :
+ task_200805271056_0001_r_000007_0, Status : FAILED
+java.io.IOException: Could not get block locations. Aborting...
+at org.apache.hadoop.dfs.DFSClient$DFSOutputStream.processDatanode
+ Error(DFSClient.java:1832)
+at
+ org.apache.hadoop.dfs.DFSClient$DFSOutputStream.access$1100(DFSClient.java:1487)
+at
+ org.apache.hadoop.dfs.DFSClient$DFSOutputStream$DataStreamer.run(DFSClient.java:1579)
+
+I then discovered that 1 or more DataNode instances on the slave nodes
+ are down (we run 1 DataNode instance per machine). The cause for at
+ least some of the DataNode failures is a JVM internal error that gets
+ raised due to a complete out-of-memory scenario (on a 4G, 4-way machine). 
+
+Watching the DataNodes run, I can see them consuming more and more
+ memory. For those failures for which there is a JVM traceback, I see (in
+ part...NOTE 0.16.4 TRACEBACK):
+#
+# java.lang.OutOfMemoryError: requested 16 bytes for CHeapObj-new. Out
+ of swap space?
+#
+# Internal Error (414C4C4F434154494F4E0E494E4C494E450E4850500017),
+ pid=4246, tid=2283883408
+#
+# Java VM: Java HotSpot(TM) Server VM (1.6.0_02-b05 mixed mode)
+# If you would like to submit a bug report, please visit:
+# http://java.sun.com/webapps/bugreport/crash.jsp
+#
+--------------- T H R E A D ---------------
+Current thread (0x8a942000): JavaThread
+ ""org.apache.hadoop.dfs.DataNode$DataXceiver@3f4f44"" daemon [_thread_in_Java, id=15064]
+Stack: [0x881c4000,0x88215000), sp=0x882139e0, free space=318k
+Native frames: (J=compiled Java code, j=interpreted, Vv=VM code,
+ C=native code)
+V [libjvm.so+0x53b707]
+V [libjvm.so+0x225fe1]
+V [libjvm.so+0x16fdc5]
+V [libjvm.so+0x22aef3]
+Java frames: (J=compiled Java code, j=interpreted, Vv=VM code)
+v blob 0xf4f235a7
+J java.io.DataInputStream.readInt()I
+j
+ org.apache.hadoop.dfs.DataNode$BlockReceiver.receiveBlock(Ljava/io/DataOutputStream;Ljava/io/DataInputStream;Ljava/io/DataOutputStream;Ljava/lang/String;Lorg/a
+pache/hadoop/dfs/DataNode$Throttler;I)V+126
+j
+ org.apache.hadoop.dfs.DataNode$DataXceiver.writeBlock(Ljava/io/DataInputStream;)V+746
+j org.apache.hadoop.dfs.DataNode$DataXceiver.run()V+174
+j java.lang.Thread.run()V+11
+v ~StubRoutines::call_stub
+--------------- P R O C E S S ---------------
+Java Threads: ( => current thread )
+0x0ae3f400 JavaThread ""process reaper"" daemon [_thread_blocked,
+ id=26870]
+0x852e6000 JavaThread
+ ""org.apache.hadoop.dfs.DataNode$DataXceiver@e5dce1"" daemon [_thread_in_vm, id=26869]
+0x08a1cc00 JavaThread ""PacketResponder 0 for Block
+ blk_-6186975972786687394"" daemon [_thread_blocked, id=26769]
+0x852e5000 JavaThread
+ ""org.apache.hadoop.dfs.DataNode$DataXceiver@c40bf8"" daemon [_thread_in_native, id=26768]
+0x0956e000 JavaThread ""PacketResponder 0 for Block
+ blk_-2322514873363546651"" daemon [_thread_blocked, id=26767]
+0x852e4400 JavaThread
+ ""org.apache.hadoop.dfs.DataNode$DataXceiver@1ca61f9"" daemon [_thread_in_native, id=26766]
+0x09d3a400 JavaThread ""PacketResponder 0 for Block
+ blk_8926941945313450801"" daemon [_thread_blocked, id=26764]
+0x852e3c00 JavaThread
+ ""org.apache.hadoop.dfs.DataNode$DataXceiver@1e186d9"" daemon [_thread_in_native, id=26763]
+0x0953d000 JavaThread ""PacketResponder 0 for Block
+ blk_4785883052769066976"" daemon [_thread_blocked, id=26762]
+0xb13a5c00 JavaThread
+ ""org.apache.hadoop.dfs.DataNode$DataXceiver@13d62aa"" daemon [_thread_in_native, id=26761]
+
+The interesting part here is that if I count the number of JavaThreads
+ running org.apache.hadoop.dfs.DataNode I see 4,538 (!) in the
+ traceback. The number of threads was surprising.
+
+Other DataNodes just exit without panicking the JVM. In either failure
+ mode, the last few lines of the DataNode log file is apparently
+ innocuous:
+
+2008-05-27 11:31:47,663 INFO org.apache.hadoop.dfs.DataNode: Datanode 2
+ got response for connect ack from downstream datanode with
+ firstbadlink as
+2008-05-27 11:31:47,663 INFO org.apache.hadoop.dfs.DataNode: Datanode 2
+ forwarding connect ack to upstream firstbadlink is
+2008-05-27 11:31:48,268 INFO org.apache.hadoop.dfs.DataNode: Receiving
+ block blk_-2241766430103062484 src: /10.2.14.10:33626 dest:
+ /10.2.14.10:50010
+2008-05-27 11:31:48,740 INFO org.apache.hadoop.dfs.DataNode: Receiving
+ block blk_313239508245918539 src: /10.2.14.24:37836 dest:
+ /10.2.14.24:50010
+2008-05-27 11:31:48,740 INFO org.apache.hadoop.dfs.DataNode: Datanode 0
+ forwarding connect ack to upstream firstbadlink is
+2008-05-27 11:31:49,044 INFO org.apache.hadoop.dfs.DataNode: Receiving
+ block blk_1684581399908730353 src: /10.2.14.16:51605 dest:
+ /10.2.14.16:50010
+2008-05-27 11:31:49,044 INFO org.apache.hadoop.dfs.DataNode: Datanode 0
+ forwarding connect ack to upstream firstbadlink is
+2008-05-27 11:31:49,509 INFO org.apache.hadoop.dfs.DataNode: Receiving
+ block blk_2493969670086107736 src: /10.2.14.18:47557 dest:
+ /10.2.14.18:50010
+2008-05-27 11:31:49,513 INFO org.apache.hadoop.dfs.DataNode: Datanode 1
+ got response for connect ack from downstream datanode with
+ firstbadlink as
+2008-05-27 11:31:49,513 INFO org.apache.hadoop.dfs.DataNode: Datanode 1
+ forwarding connect ack to upstream firstbadlink is
+
+Finally, the task-level output (in userlogs) doesn't reveal much
+ either:
+
+2008-05-27 11:38:30,724 INFO org.apache.hadoop.mapred.ReduceTask:
+ task_200805271056_0001_r_000007_1 Need 34 map output(s)
+2008-05-27 11:38:30,753 INFO org.apache.hadoop.mapred.ReduceTask:
+ task_200805271056_0001_r_000007_1 done copying
+ task_200805271056_0001_m_001976_0 output from worker9.
+2008-05-27 11:38:31,727 INFO org.apache.hadoop.mapred.ReduceTask:
+ task_200805271056_0001_r_000007_1: Got 0 new map-outputs & 0 obsolete
+ map-outputs from tasktracker and 0 map-outputs from previous failures
+2008-05-27 11:38:31,727 INFO org.apache.hadoop.mapred.ReduceTask:
+ task_200805271056_0001_r_000007_1 Got 33 known map output location(s);
+ scheduling...
+2008-05-27 11:38:31,727 INFO org.apache.hadoop.mapred.ReduceTask:
+ task_200805271056_0001_r_000007_1 Scheduled 1 of 33 known outputs (0 slow
+ hosts and 32 dup hosts)
+2008-05-27 11:38:31,727 INFO org.apache.hadoop.mapred.ReduceTask:
+ task_200805271056_0001_r_000007_1 Copying task_200805271056_0001_m_001248_0
+ output from worker8.
+2008-05-27 11:38:31,727 INFO org.apache.hadoop.mapred.ReduceTask:
+ task_200805271056_0001_r_000007_1 Need 33 map output(s)
+2008-05-27 11:38:31,752 INFO org.apache.hadoop.mapred.ReduceTask:
+ task_200805271056_0001_r_000007_1 done copying
+ task_200805271056_0001_m_001248_0 output from worker8.
+",1
+"In the overall scheme of things this is probably a nit, but in the run() method of DataXceiveServer in DataNode.java the method ""data.checkDataDir()"" is called right after the socket accept. data.checkDataDir() is a sanity check that makes sure the data directory is setup properly. It is a good sanity check to do when the server is started, but it seems like a bit of a waste to do it after every socket accept. If something happens that causes the sanity check to fail, you would end up finding out about it during the processing of the request anyway.",1
+Delete a directory with millions of files. This could take several minutes (observed 12 mins for 9 million files). While the operation is in progress FSNamesystem lock is held and the requests from clients are not handled until deletion completes.,1
+"The DFS Web UI directory browser should paginate the list, so that directories with large no. of files in them can still be displayed in constant time (and not require too much load on the network/NN).",1
+"Currently map-reduce applications (specifically file-based input-formats) use FileSystem.getFileBlockLocations to compute splits. However they are forced to call it once per file.
+The downsides are multiple:
+Even with a few thousand files to process the number of RPCs quickly starts getting noticeable
+The current implementation of getFileBlockLocations is too slow since each call results in 'search' in the namesystem. Assuming a few thousand input files it results in that many RPCs and 'searches'.
+It would be nice to have a FileSystem.getFileBlockLocations which can take in a directory, and return the block-locations for all files in that directory. We could eliminate both the per-file RPC and also the 'search' by a 'scan'.
+When I tested this for terasort, a moderate job with 8000 input files the runtime halved from the current 8s to 4s. Clearly this is much more important for latency-sensitive applications...",1
+"I think Hadoop needs utilities or framework to make it simpler to deal with generic asynchronous IO in Hadoop.
+Example use case :
+Its been a long standing problem that DataNode takes too many threads for data transfers. Each write operation takes up 2 threads at each of the datanodes and each read operation takes one irrespective of how much activity is on the sockets. The kinds of load that HDFS serves has been expanding quite fast and HDFS should handle these varied loads better. If there is a framework for non-blocking IO, read and write pipeline state machines could be implemented with async events on a fixed number of threads.
+A generic utility is better since it could be used in other places like DFSClient. DFSClient currently creates 2 extra threads for each file it has open for writing.
+Initially I started writing a primitive ""selector"", then tried to see if such facility already exists. Apache MINA seemed to do exactly this. My impression after looking the the interface and examples is that it does not give kind control we might prefer or need. First use case I was thinking of implementing using MINA was to replace ""response handlers"" in DataNode. The response handlers are simpler since they don't involve disk I/O. I asked on MINA user list, but looks like it can not be done, I think mainly because the sockets are already created.
+Essentially what I have in mind is similar to MINA, except that read and write of the sockets is done by the event handlers. The lowest layer essentially invokes selectors, invokes event handlers on single or on multiple threads. Each event handler is is expected to do some non-blocking work. We would of course have utility handler implementations that do read, write, accept etc, that are useful for simple processing.
+Sam Pullara mentioned that xSockets is more flexible. It is under GPL.
+Are there other such implementations we should look at?",1
+"Probably when hitting HADOOP-3810, Namenode became unresponsive. Large time spent in GC.
+All dfs/dfsadmin command were timing out.
+WebUI was coming up after waiting for a long time.
+Maybe setting a long timeout would have made the dfsadmin command go through.
+But it would be nice to have a separate queue/handler which doesn't compete with regular rpc calls.
+All I wanted to do was dfsadmin -safemode enter, dfsadmin -finalizeUpgrade ...",1
+"The summary is a bit of long. But the basic idea is to better utilize multiple file system partitions.
+For example, in a map reduce job, if we have 100 splits local to a node, and these 100 splits spread 
+across 4 file system partitions, if we allow 4 mappers running concurrently, it is better that mappers
+each work on splits on different file system partitions. If in the worst case, 
+all the mappers work on the splits on the same file system partition, then the other three 
+file systems are not utilized at all.",1
+"The name node journal records HDFS transactions. The journal can be written to multiple file systems (but not HDFS itself!) to increase the durability of the journal. The transaction has to wait for each copy to sync. If one of the file systems becomes slow, performance of HDFS is affected.
+As an alternative to directly writing a remote file, the transaction could be written to another name node. The alternate node could be the secondary name node, or a read-only name node replica that provides a journal service. The idea being that receipt of the record-but not its sync to the local disk-would be good enough as a journal replica. This could provide a fast, predictable journal replica where common-mode failures are sufficiently improbable or tolerable.",1
+"operation that has the potential to severely starve other clients?
+The speculation is that deleting a directory with 50,000 files might starve other client for several seconds. Is that true? Is that necessary?",1
+" once , to attempt to recover from machine(s) being too busy, or the block being relocated since the initial call to callGetBlockLocations(). If the second attempt to find the block based on what the namenode told DFSClient, then issue the messages and give up by throwing the exception it does today.  if (nodes == null || nodes.length == 0) {
+            LOG.info(""No node available for block: "" + blockInfo);
+          }
+          LOG.info(""Could not obtain block "" + block.getBlock() + "" from any node:  "" + ie); On a heavily loaded node, the communication between a DFSClient can time out or fail leading DFSClient to believe the datanode is non-responsive even though the datanode is, in fact, healthy. It may run through all the retries for that datanode leading DFSClient to mark the datanode ""dead"".
+This can continue as DFSClient iterates through the other datanodes for the block it is looking for, and then DFSClient will declare that it can't find any servers for that block (even though all n (where n = replication factor) datanodes are healthy (but slow) and have valid copies of the block.
+It is also possible that the process running the DFSClient is too slow and misses (or times out) responses from the data node, resulting in the DFSClient believing that the datanode is dead.
+Another possibility is that the block has been moved from one or more datanodes since DFSClient$DFSInputStream.chooseDataNode() found the locations of the block.
+When the retries for each datanode and all datanodes are exhausted, DFSClient$DFSInputStream.chooseDataNode() issues the warning:",1
+"fsck on one subdirectory.
+about 50,000 files (50,000 blocks)
+fsck /user/aaa 3 seconds
+fsck /user/aaa -files 30 seconds
+fsck /user/aaa -files -blocks -locations 90 seconds.
+It depends on the network, but could it be a little faster?",1
+"I just upgraded from 0.14.2 to 0.15.0, and things went very smoothly, if a little slowly.
+The main reason the upgrade took so long was the block upgrades on the datanodes. Each of our datanodes has 3 drives listed for the dfs.data.dir parameter. From looking at the logs, it is fairly clear that the upgrade procedure does not attempt to upgrade all listed dfs.data.dir's in parallel.
+I think even if all of your dfs.data.dir's are on the same physical device, there would still be an advantage to performing the upgrade process in parallel. The less downtime, the better: especially if it is potentially 20 minutes versus 60 minutes.",1
+"It has been reported that for large clusters (2K datanodes) , a restarted namenode can often take hours to leave the safe-mode.
+admins have reported that if the data nodes are started, say 100 at a time, it significantly improves the startup time of the name node
+setting the initial heap (as opposed to max heap) to be larger also helps t- this avoids the GCs before more memory is added to the heap.
+Observations of the Name node via JConsole and instrumentation:
+if 80% of memory is used for maintining the names and blocks data structures, then processing block reports can generate a lot of GC causing block reports to take a long time to process. This causes datanodes that sent the block reports to timeout and resend the block reports making the situation worse.
+Hence to improve the situation the following are proposed:
+1. Have random backoffs (of say 60sec for a 1K cluster) of the initial block report sent by a DN. This would match the randomization of the normal hourly block reports. (Jira HADOOP-2326)
+2. Have the NN tell the DN how much to backoff (i.e. rather than a single configuration parameter for the backoff). This would allow the system to adjust automatically to cluster size - smaller clusters will startup faster than larger clusters. (Jira HADOOP-2444)
+3. Change the block reports to be array of longs rather then array of block report objects - this would reduce the amount of memory used to process a block report. This would help the initial startup and also the block report process during normal operation outside of the safe-mode. (Jira HADOOP-2110)
+4. Queue and acknowledge the receipts of the block reports and have separate set of threads process the block report queue. (HADOOP-2111)
+5. Incremental BRs Jira HADOOP-1079
+5 Jiras have been filed as noted.
+Based on experiments, we may not want to proceed with option 4. While option 4 did help block report processing when tried on its own, it turned out that in combination with 1 it did not help much. Furthermore, clean up of RPC to remove the client-side timeout (see JIRA Hadoop-2188) would make this fix obsolete.",1
+"When hitting HADOOP-3980, secondary namenode kept on pulling gigs of fsimage/edits every 10 minutes which slowed down the namenode significantly. When namenode is down, I'd like the secondary namenode to keep on retrying to connect. However, when pull/push of large files keep on failing, I'd like a upper limit on the number of retries. Either shutdown or sleep for fs.checkpoint.period seconds.",1
+" all filesystems listed in the dfs.data.dir are treated the same with respected to the space reservation percentages. This makes sense on homogeneous, dedicated machines, but breaks badly on heterogeneous ones and creates a bit of a support nightmare.
+In a grid with multiple disk sizes, the admin is either leaving space unallocated or is required to slice up the disk. In addition, if Hadoop isn't the only application running, there may be unexpected collisions. In order to work around this limitation, the administrator must specifically partition up filesystem space such that the reservation 'make sense' for all of the configured file systems. For example, if someone has 2 small file systems and 2 big ones on a single machine, due to various requirements (such as the OS being mirrored, systems were built from spare parts, server consolidation, whatever). Reserving 10% might make sense on the small file systems (say 7G) but 10% may leave a lot more space than desired free on the big ones (say 50G).
+Instead, Hadoop should support a more robust syntax for directory layout. Ideally, an admin should be able to specify the directory location, the amount of space reserved (in either a percentage or a raw size syntax) for HDFS, as well as a weighting such that some file systems may be preferred over others. In the example above, the two larger file systems would likely be preferred over the two smaller ones. Additionally, the reservation on the larger file system might be changed such that it matches the 7G on the smaller file system.
+Doing so would allow for much more complex configuration scenarios without having to shuffle a lot of things around at the operating system level.",1
+"i'm here after HADOOP-2341 and HADOOP-2346, in my hbase env, many opening mapfiles cause datanode OOME(stack memory), because 2000+ data serving threads in datanode process.
+although HADOOP-2346 has implements timeouts, it will be some situation many connection created before the read timeout(default 6min) reach. like hbase does, it open all files on regionserver startup.
+limit concurrent connections(data serving thread) will make datanode more stable. and i think it could be done in SocketIOWithTimeout$SelectorPool#select:
+1. in SelectorPool#select, record all waiting SelectorInfo instances in a List at the beginning, and remove it after 'Selector#select' done.
+2. before real 'select', do a limitation check, if reached, close the first selectorInfo.",1
+"On a large cluster, a few datanodes could be under-performing. There were cases when the network connectivity of a few of these bad datanodes were degraded, resulting in long long times (in the order of two hours) to transfer blocks to and from these datanodes.
+A similar issue arises when disks a single disk on a datanode fail or change to read-only mode: in this case the entire datanode shuts down.
+HDFS should detect and handle network and disk performance degradation more gracefully. One option would be to blacklist these datanodes, de-prioritise their use and alert the administrator.",1
+"A few additional thoughts to improve the performance of chooseTarget:
+1. Reduce the # of calls to getDistance in sortedByDistance
+2. Improve the performance of getNode by adding a rack name to rack node map",1
+" looked at all the code long and hard and this was my analysis (could be wrong, I'm not an expert on this codebase):
+Current Serial HDFS performance = Average Datanode Performance
+Average Datanode Performance = Average Disk Performance (even if you have more than one)
+We should have:
+Ideal Serial HDFS Performance = Sum of Ideal Datanode Performance
+Ideal Datanode Performance = Sum of disk performance
+When you read a single file serially from HDFS there are a number of limitations that come into play:
+1) Blocks on multiple datanodes will be load balanced between them - averaging the performance of the datanodes
+2) Blocks on multiple disks in a single datanode are load balanced between them - averaging the performance of the disks
+I think that all this could be fixed if we actually prefetched fully read blocks on the client until the client can no longer keep up with the data or there is another bottleneck like network bandwidth.
+This seems like a reasonably common use case though not the typical MapReduce case.",1
+"Showing the namenode webui takes a long time with large cluster 
+and also adds high cpu load to the namenode. 
+Is this expected?
+WHILE pulling the namenode webUI, top showed
+PID USER PR NI VIRT RES SHR S %CPU %MEM TIME+ COMMAND
+20957 hadoop 16 0 20.3g 19g 4732 S 131 63.7 9767:05 java
+AFTER the pull
+PID USER PR NI VIRT RES SHR S %CPU %MEM TIME+ COMMAND
+20957 hadoop 16 0 20.3g 19g 4732 S 24 63.7 9768:12 java
+It would be nice if we can improve this especially since we tend to hit the webUI when namenode is having trouble.",1
+"When memory usage is too high, the namenode could refuse creation of new files. This would still crash applications, but it would keep the filesystem itself from crashing in a way that is hard to recover while folks remove excessive (presumably) small files.
+http://java.sun.com/javase/6/docs/api/java/lang/management/MemoryPoolMXBean.html#UsageThreshold
+Other resource limitations (other than memory) are CPU, network and disk. We thought that we do not need to monitor those resources. The monitoring of critical resources and the policy of what action to take can be outside the actual Namenode process itself.
+There are two reasons that cause memory pressure on the Namenode. One is the creation of a large number of files. This reduces the free memory pool and the GC has to work even harder to recycle memory. The other reason is when a burst of RPCs arrive at the Namenode (especially Block reports). This spurt causes free memory to reduce dramatically within a couple of seconds and makes GC work harder. And we know that when GC runs hard, the server threads in the JVM starve for CPU, causing timeouts on clients.",1
+"When multiple file system partitions are configured for the data storage of a data node,
+it uses a strict round robin policy to decide which partition to use for writing the next block.
+This may result in anormaly cases in which the blocks of a file are not evenly distributed across 
+the partitions. For example, when we use distcp to copy files with each node have 4 mappers running concurrently, 
+those 4 mappers are writing to DFS at about the same rate. Thus, it is possible that the 4 mappers write out
+blocks interleavingly. If there are 4 file system partitions configured for the local data node, it is possible that each mapper will
+continue to write its blocks on to the same file system partition.
+A simple random placement policy will avoid such anormaly cases, and does not have any obvious drawbacks.",1
+"One of the major strategies Hadoop uses to get scalable data processing is to move the code to the data. However, putting the DFS client on the same physical node as the data blocks it acts on doesn't improve read performance as much as expected.
+After looking at Hadoop and O/S traces (via HADOOP-4049), I think the problem is due to the HDFS streaming protocol causing many more read I/O operations (iops) than necessary. Consider the case of a DFSClient fetching a 64 MB disk block from the DataNode process (running in a separate JVM) running on the same machine. The DataNode will satisfy the single disk block request by sending data back to the HDFS client in 64-KB chunks. In BlockSender.java, this is done in the sendChunk() method, relying on Java's transferTo() method. Depending on the host O/S and JVM implementation, transferTo() is implemented as either a sendfilev() syscall or a pair of mmap() and write(). In either case, each chunk is read from the disk by issuing a separahitting te I/O operation for each chunk. The result is that the single request for a 64-MB block ends up the disk as over a thousand smaller requests for 64-KB each.
+Since the DFSClient runs in a different JVM and process than the DataNode, shuttling data from the disk to the DFSClient also results in context switches each time network packets get sent (in this case, the 64-kb chunk turns into a large number of 1500 byte packet send operations). Thus we see a large number of context switches for each block send operation.
+I'd like to get some feedback on the best way to address this, but I think providing a mechanism for a DFSClient to directly open data blocks that happen to be on the same machine. It could do this by examining the set of LocatedBlocks returned by the NameNode, marking those that should be resident on the local host. Since the DataNode and DFSClient (probably) share the same hadoop configuration, the DFSClient should be able to find the files holding the block data, and it could directly open them and send data back to the client. This would avoid the context switches imposed by the network layer, and would allow for much larger read buffers than 64KB, which should reduce the number of iops imposed by each read block operation",1
+" did a test on DFS read throughput and found that the data node 
+process consumes up to 180% cpu when it is under heavi load. Here are the details:
+The cluster has 380+ machines, each with 3GB mem and 4 cpus and 4 disks.
+I copied a 10GB file to dfs from one machine with a data node running there.
+Based on the dfs block placement policy, that machine has one replica for each block of the file.
+then I run 4 of the following commands in parellel:
+hadoop dfs -cat thefile > /dev/null &
+Since all the blocks have a local replica, all the read requests went to the local data node.
+I observed that:
+The data node process's cpu usage was around 180% for most of the time .
+The clients's cpu usage was moderate (as it should be).
+All the four disks were working concurrently with comparable read throughput.
+The total read throughput was maxed at 90MB/Sec, about 60% of the expected total 
+aggregated max read throughput of 4 disks (160MB/Sec). Thus disks were not a bottleneck
+in this case.
+The data node's cpu usage seems unreasonably high.",1
+Currently the IPC server holds a client's response queue lock while writing response back to a client. This unnecessary held lock prevents handlers from queuing a reply to the response queue when a reply is being written to the client,1
+"Original description: Rather than tracking the total number of times DFSInputStream failed to talk to a datanode for a particular block, such failures and the the list of datanodes involved should be scoped to individual blocks. In particular, the ""deadnode"" list should be a map of blocks to a list of failed nodes, the latter reset and the nodes retried per the existing semantics.
+[see comment below for new thinking, left this comment to give context to discussion]",1
+"Currently datanode notifies namenode newly added blocks and the blocks that are corrupt. There is no explicit message from the datanode to the namenode to indicate the deletion of blocks. Block reports from the datanode is the only way for the namenode to learn about the deletion of blocks at a datanode. With the addition of explicit request to indicate to block deletion, block report interval (which is currently 1 hour) can be increased to a longer duration. This reduces load on both namenode and datanodes.",1
+Block report processing can be more efficient if instances of the block ID class are replaced with a sequence of longs.,1
+Startup time can be improved if the initial block reports are spread randomly over small period of time.,1
+"I have a cluster that has 1800 datanodes. Each datanode has around 50000 blocks and sends a block report to the namenode once every hour. This means that the namenode processes a block report once every 2 seconds. Each block report contains all blocks that the datanode currently hosts. This makes the namenode compare a huge number of blocks that practically remains the same between two consecutive reports. This wastes CPU on the namenode.
+The problem becomes worse when the number of datanodes increases.
+One proposal is to make succeeding block reports (after a successful send of a full block report) be incremental. This will make the namenode process only those blocks that were added/deleted in the last period.",1
+"When running fuse_dfs on machines that have different CPU characteristics, I noticed that the performance of fuse_dfs is very sensitive to the machine power.
+The command I used was simply a cat over a rather large amount of data stored on HDFS. Here are the comparative times for the different types of machines:
+Intel(R) Pentium(R) 4 CPU 2.40GHz : 2 min 40 s 
+Intel(R) Pentium(R) 4 CPU 3.06GHz: 1 min 50 s 
+2 x Intel(R) Pentium(R) 4 CPU 3.00GHz: 0 min 40 s 
+2 x Intel(R) Xeon(TM) MP CPU 3.33GHz: 0 min 28 s 
+Intel(R) Core(TM)2 Quad CPU Q6600 @ 2.40GHz 0 min 15 s
+I tried to find other explanations for the drop in performance, such as network configuration, or data locality, but the faster machines are the ones that are ""further away"" from the others considering the network configuration, and that don't run datanodes.
+top shows that the CPU usage of fuse_dfs is between 80-90% on the slower machines, and about 40% on the fastest one.
+This leads me to the conclusion that fuse_dfs consumes a lot of CPU resources, much more than expected.
+Any help or insight concerning this issue will be greatly appreciated, since these difference actually result in days of computations for a given job.",1
+"Found more redundant searches in BlockManager.addStoredBLock() and BlockManager.getNodes(Block).
+The pattern here is that we first call BlocksMap.numNodes(Block) in order to determine the size of the array of data-nodes. This is one search in blocksMap. Then we call BlocksMap.nodeIterator(Block), which also performs a search. This is all not necessary because we already have the block in the form of BlockInfo from blocksMap and do not need to search for it.",1
+"The DFS client opens a socket connection to a DN for the n-th block, fetches n-th block from that datanode and then opens socket connections to the datanode that contains the n+1th block. Sequential-reads might show performance improvements if the setting up of socket connections to the datanode containing the n+1th block can happen in parallel while the data for the nth block is being fetched. The amount of improvement, if any, has to be measured.",1
+"The namenode processes RPC requests from clients that are reading/writing to files as well as heartbeats/block reports from datanodes.
+Sometime, because of various reasons (Java GC runs, inconsistent performance of NFS filer that stores HDFS transacttion logs, etc), the namenode encounters transient slowness. For example, if the device that stores the HDFS transaction logs becomes sluggish, the Namenode's ability to process RPCs slows down to a certain extent. During this time, the RPCs from clients as well as the RPCs from datanodes suffer in similar fashion. If the underlying problem becomes worse, the NN's ability to process a heartbeat from a DN is severly impacted, thus causing the NN to declare that the DN is dead. Then the NN starts replicating blocks that used to reside on the now-declared-dead datanode. This adds extra load to the NN. Then the now-declared-datanode finally re-establishes contact with the NN, and sends a block report. The block report processing on the NN is another heavyweight activity, thus casing more load to the already overloaded namenode.
+My proposal is tha the NN should try its best to continue processing RPCs from datanodes and give lesser priority to serving client requests. The Datanode RPCs are integral to the consistency and performance of the Hadoop file system, and it is better to protect it at all costs. This will ensure that NN recovers from the hiccup much faster than what it does now.",1
+"I am seeing that when we delete a large directory that has plenty of blocks, the heartbeat times from datanodes increase significantly from the normal value of 3 seconds to as large as 50 seconds or so. The heartbeat thread in the Datanode deletes a bunch of blocks sequentially, this causes the heartbeat times to increase.",1
+"HDFS data node currently assigns writers to disks randomly. This is good if there are a large number of readers/writers on a single data node, but might create a lot of contentions if there are only 4 readers/writers on a 4-disk node.
+A better way is to introduce a base class DiskHandler, for registering all disk operations (read/write), as well as getting the best disk for writing new blocks. A good strategy of the DiskHandler would be to distribute the load of the writes to the disks with more free spaces as well as less recent activities. There can be many strategies.
+This could help improve the HDFS multi-threaded write throughput a lot - we are seeing <25MB/s/disk on a 4-disk/node 4-node cluster (replication is already considered) given 8 concurrent writers (24 writers considering replication). I believe we can improve that to 2x.",1
+adds the ability for FSInputChecker subclasses to read multiple checksum chunks in a single call to readChunk. This is the HDFS-side use of that new feature.,1
+"In a large and busy cluster, a block can be requested by many clients at the same time. HDFS-767 tries to solve the failing case when the # of retries exceeds the maximum # of retries. However, that patch doesn't solve the performance issue since all failing clients have to wait a certain period before retry, and the # of retries could be high.
+One solution to solve the performance issue is to increase the # of replicas for this ""hot"" block dynamically when it is requested many times at a short period. The name node need to be aware such situation and only clean up extra replicas when they are not accessed recently.",1
+"This is a performance thing. As I understand the code in FSDataset.append, if the block is already finalized, it needs to move it into the RBW directory so it can go back into a ""being written"" state. This is done using volumes.getNextVolume without preference to the volume that the block currently exists on. It seems to me that this could cause a lot of slow cross-volume copies on applications that periodically append/close/append/close a file. Instead, getNextVolume could provide an alternate form that gives preference to a particular volume, so the rename stays on the same disk.",1
+"A Datanode should scan its disk devices in parallel so that the time to generate a block report is reduced. This will reduce the startup time of a cluster.
+A datanode has 12 disk (each of 1 TB) to store HDFS blocks. There is a total of 150K blocks on these 12 disks. It takes the datanode upto 20 minutes to scan these devices to generate the first block report.",1
+"In the current trunk, the HDFS client methods writeChunk() and hflush./sync are syncronized. This means that if a hflush/sync is in progress, an applicationn cannot write data to the HDFS client buffer. This reduces the write throughput of the transaction log in HBase.
+The hflush/sync should allow new writes to happen to the HDFS client even when a hflush/sync is in progress. It can record the seqno of the message for which it should receice the ack, indicate to the DataStream thread to star flushing those messages, exit the synchronized section and just wai for that ack to arrive.",1
+"Currently, on read requests, the DataXCeiver server allocates a new thread per request, which must allocate its own buffers and leads to higher-than-optimal CPU and memory usage by the sending threads. If we had a single selector and a small threadpool to multiplex request packets, we could theoretically achieve higher performance while taking up fewer resources and leaving more CPU on datanodes available for mapred, hbase or whatever. This can be done without changing any wire protocols.",1
+"Right now each connection into the datanode xceiver only processes one operation.
+In the case that an operation leaves the stream in a well-defined state (eg a client reads to the end of a block successfully) the same connection could be reused for a second operation. This should improve random read performance significantly.",1
+"FSDirectory#getListring(String src) has the following code:
+int i = 0;
+for (INode cur : contents)
+{ listing[i] = createFileStatus(srcs+cur.getLocalName(), cur); i++; }
+So listing a directory will return an array of FileStatus. Each FileStatus element has the full path name. This increases the return message size and adds non-negligible CPU time to the operation.
+FSDirectory#getFileInfo(String) does not need to return the file name either.
+Another optimization is that in the version of FileStatus that's used in the wire protocol, the field path does not need to be Path; It could be a String or a byte array ideally. This could avoid unnecessary creation of the Path objects at NameNode, thus help reduce the GC problem observed when a large number of getFileInfo or getListing operations hit NameNode.",1
+"The following improvements are suggested to DFSClient and DataNode to improve DFS write throughput, based on experimental verification with replication factor of 1.
+The changes are useful in principle for replication factors of 2 and 3 as well, but they do not currently demonstrate noticeable performance improvement in our test-bed because of a network throughput bottleneck that hides the benefit of these changes.
+All changes are applicable to 0.20.2. Some of them are applicable to trunk, as noted below. I have not verified applicability to 0.21.
+List of Improvements
+-----------------------------
+Item 1: DFSCilent. Finer grain locks in WriteChunk(). Currently the lock is held at the data block level (512 bytes). It can be moved to the packet level (64kbytes), to lower the frequency of locking.
+This optimization applies to 20.2. It already appears in trunk.
+Item 2: Misc. improvements to DataNode
+2.1: Concurrency of Disk Writes: Check sum verification and writing data to disk can be moved to a separate thread (""Disk Write Thread""). This will allow the existing ""network thread"" to trigger faster acks to the DFSClient. This will also allow the packet to be transmitted to the replication node faster. In effect, this will allow DataNode to consume packets at higher speeds.
+This optimization applies to 20.2 and trunk.
+2.2: Bulk Receive and Bulk Send: This optimization is enabled by doing 2.1. We can now have DataNode receive more than one packet at a time since we have added a buffer between the (existing) network thread and the (newly added) Disk Write thread.
+This optimization applies to 20.2 and trunk.
+2.3: Early Ack: The proposed optimization is to send out acks to the client as soon as possible instead of waiting for the disk write. Note that, the last ack is an exception: It will be sent only after data has been flushed to the OS.
+This optimization applies to 20.2. It already appears in trunk.
+2.4: lseek optimization: Currently lseek (the system call) is called before every disk write, which is not necessary when the write is sequential. The propsed optimization calls lseek only when necessary.
+This optimization applies to 20.2. I was unable to tell if it is already in trunk.
+2.5 Checksum buffered writes: Currently checksum is written in a buffered stream of size 512 bytes. This can be increased to a higher numbers - such as 4kbytes - to lower the number of write() system calls. This will save context switch overhead.
+This optimization applies to 20.2. I was unable to tell if it is already in trunk.
+Item 3: Applying HADOOP-6166 - PureJavaCrc32() - from trunk to 20.2
+This is applicable to 20.2. It already appears in trunk.
+Performance Experiments Results
+-----------------------------------------------
+Performance experiments showed the following numbers:
+Hadoop Version: 0.20.2
+Server Configs: RHEL5, Quad-core dual-CPU, 16GB RAM, 4 SATA disks
+$ uname -a
+Linux gsbl90324.blue.ygrid.yahoo.com 2.6.18-53.1.13.el5 #1 SMP Mon Feb 11 13:27:27 EST 2008 x86_64 x86_64 x86_64 GNU/Linux
+$ cat /proc/cpuinfo
+model name : Intel(R) Xeon(R) CPU L5420 @ 2.50GHz
+$ cat /etc/issue
+Red Hat Enterprise Linux Server release 5.1 (Tikanga)
+Kernel \r on an \m
+Benchmark Details
+--------------------------
+Benchmark Name: DFSIO
+Benchmark Configuration:
+a) # maps (writers to DFS per node). Tried the following values: 1,2,3
+b) # of nodes: Single-node test and 15-node cluster test
+Results Summary
+--------------------------
+a) With all the above optimizations turned on
+All these tests were done with replication factor of 1. Tests with replication factors of 2 and 3 showed no noticeably improvement, because these improvements are shielded by network bandwidth as noted above.
+What was measured: Write throughput per client (in MB/s)
+Test Description Baseline (MB/s) With improvements (MB/s) % improvement
+15-node cluster with 1 map (writer) per node 103 147 ~43 %
+Single node test with 1 maps (writer) per node 102 148 ~45 %
+Single node test with 2 maps (writers) per node 86 101 ~16 %
+Single node test with 3 maps (writers) per node 67 76 ~13 %
+a) With above optimizations turned on individually
+I ran some experiments by adding and removing items individually to understand the approximate range of performance contribution from each item. These are the numbers I got (They are approximate).
+ITEM Title Improvement in 0.20 Improvement in trunk
+Item 1 DFSCilent. Finer grain locks in WriteChunk() 30% Already in trunk
+Item 2.1 Concurrency of Disk Writes 25% 15-20%
+Item 2.2 Bulk Receive and Bulk Send 2% (Have not yet tried)
+Item 2.3 Early Ack 2% Already in trunk
+Item 2.4 lseek optimization 2% (Have not yet tried)
+Item 2.5 Checksum buffered writes 2% (Have not yet tried)
+Item 3 Applying HADOOP-6166 - PureJavaCrc32() 15% Already in trunk
+Patches
+-----------",1
+"Currently HDFS issues one RPC from the client to the NameNode for listing a directory. However some directories are large that contain thousands or millions of items. Listing such large directories in one RPC has a few shortcomings:
+1. The list operation holds the global fsnamesystem lock for a long time thus blocking other requests. If a large number (like thousands) of such list requests hit NameNode in a short period of time, NameNode will be significantly slowed down. Users end up noticing longer response time or lost connections to NameNode.
+2. The response message is uncontrollable big. We observed a response as big as 50M bytes when listing a directory of 300 thousand items. Even with the optimization introduced at HDFS-946 that may be able to cut the response by 20-50%, the response size will still in the magnitude of 10 mega bytes.
+I propose to implement a directory listing using multiple RPCs. Here is the plan:
+1. Each getListing RPC has an upper limit on the number of items returned. This limit could be configurable, but I am thinking to set it to be a fixed number like 500.
+2. Each RPC additionally specifies a start position for this listing request. I am thinking to use the last item of the previous listing RPC as an indicator. Since NameNode stores all items in a directory as a sorted array, NameNode uses the last item to locate the start item of this listing even if the last item is deleted in between these two consecutive calls. This has the advantage of avoid duplicate entries at the client side.
+3. The return value additionally specifies if the whole directory is done listing. If the client sees a false flag, it will continue to issue another RPC.
+This proposal will change the semantics of large directory listing in a sense that listing is no longer an atomic operation if a directory's content is changing while the listing operation is in progress.",1
+"INode.getPathnames uses String.split(String) which actually uses the full Java regex implementation. Since we're always splitting on a single char, we could implement a faster one like StringUtils.split() (except without the escape character). This takes a significant amount of CPU during FSImage loading so should be a worthwhile speedup.",1
+" the current HDFS implementation, a read of a block issued to the datanode results in a disk access to the checksum file followed by a disk access to the checksum file. It would be nice to be able to do these two IOs in parallel to reduce read latency.
+Issue Links",1
+"When the BlockReader connects to the DataXceiver and sends OP_READ_BLOCK, it doesn't set TCP_NODELAY to true first. This means that the OS will wait some number of ms to try to bundle further writes into the same TCP packet. Since we are only writing a small amount, and we already use a buffer, we can safely turn on NODELAY to avoid the nagling delay, potentially improving random read performance.",1
+I am proposing a footprint optimization to merge blockReplication and preferredBlockSize fields into one 'long header' field in INodeFile class. This saves 8 bytes per INodeFile object on a 64 bit JVM. This memory optimization is transparent and changes are very minimal.,1
+"In our production clusters, getFileInfo is the most frequent operation that hit NameNode, and its frequency is highly correlated to the GC behavior. HDFS-946 has already reduced the amount of heap/cpu and the number of temporary objects for each getFileInfo call. Yet another improvement is to avoid creation of a HdfsFileStatus object for each getFileInfo call. Instead each RPC handler can have a thread local HdfsFileStatus object. Each getFileInfo call simply sets values for all fields of the thread local HdfsFileStatus object",1
+"Currently each inode stores its full path in the fsimage. I'd propose to store the local name instead. In order for each inode to identify its parent, all inodes in a directory tree are stored in the image in in-order. This proposal also requires each directory stores the number of its children in image.
+This proposal would bring a few benefits as pointed below and therefore speedup the image loading and saving.
+Remove the overhead of converting java-UTF8 encoded local name to string-represented full path then to UTF8 encoded full path when saving to an image and vice versa when loading the image.
+Remove the overhead of traversing the full path when inserting the inode to its parent inode.
+Reduce the number of temporary java objects during the process of image loading or saving and therefore reduce the GC overhead.
+Reduce the size of an image.",1
+"If you have a large number of files in HDFS, the fsimage file is very big. When the namenode restarts, it writes a copy of the fsimage to all directories configured in fs.name.dir. This takes a long time, especially if there are many directories in fs.name.dir. Make the NN write the fsimage to all these directories in parallel.",1
+We've seen a significant decrease in the performance of DistributedFileSystem::getFileBlockLocations() with security turned on Y20. This JIRA is for correcting and tracking it both on Y20 and trunk.,1
+"The audit logs do not use any format functionality that cannot be replaced by a simple, more efficient set of appends.",1
+"Most critical data structures in the NameNode (NN) are protected by a syncronized methods in the FSNamesystem class. This essentially makes critical code paths in the NN single-threaded. However, a large percentage of the NN calls are listStatus, getBlockLocations, etc which do not change internal data structures at all, these are read-only calls. If we change the FSNamesystem lock to a read/write lock, many of the above operations can occur in parallel, thus improving the scalability of the NN.",1
+"A NameNode at one of our clusters fell into full GC while fsck was performed. Digging into the problem shows that it is caused by how NameNode handles the access time of a file.
+
+Fsck calls open on every file in the checked directory to get the file's block locations. Each open changes the file's access time and then leads to writing a transaction entry to the edit log. The current code optimizes open so that it returns without issuing synchronizing the edit log to the disk. It happened that in our cluster no other jobs were running while fsck was performed. No edit log sync was ever called. So all open transactions were kept in memory. When the edit log buffer got full, it automatically doubled its space by allocating a new buffer.  Full GC happened when no contiguous space were found when allocating a new bigger buffer.",1
+"We were seeing some weird issues with the balancer in our cluster:
+1) it can get stuck during an iteration and only restarting it helps
+2) the iterations are highly inefficient. With 20 minutes iteration it moves 7K blocks a minute for the first 6 minutes and hundreds of blocks in the next 14 minutes
+3) it can hit namenode and the network pretty hard
+A few improvements we came up with as a result:
+Making balancer more deterministic in terms of running time of iteration, improving the efficiency and making the load configurable:
+Make many of the constants configurable command line parameters: Iteration length, number of blocks to move in parallel to a given node and in cluster overall.
+Terminate transfers that are still in progress after iteration is over.
+Previously iteration time was the time window in which the balancer was scheduling the moves and then it would wait for the moves to finish indefinitely. Each scheduling task can run up to iteration time or even longer. This means if you have too many of them and they are long your actual iterations are longer than 20 minutes. Now each scheduling task has a time of the start of iteration and it should schedule the moves only if it did not run out of time. So the tasks that have started after the iteration is over will not schedule any moves.
+The number of move threads and dispatch threads is configurable so that depending on the load of the cluster you can run it slower.
+I will attach a patch, please let me know what you think and what can be done better.",1
+"There are a lot of common file names used in HDFS, mainly created by mapreduce, such as file names starting with ""part"". Reusing byte[] corresponding to these recurring file names will save significant heap space used for storing the file names in millions of INodeFile objects.",1
+"Currently HDFS does not impose an upper limit on the edit log buffer. In case there are a large number of open operations coming in with access time update on, since open does not call sync automatically, there is a possibility that the buffer grow to a large size, therefore causes memory leak and full GC in extreme cases as described in HDFS-1104. 
+
+The edit log buffer should be automatically flushed when the buffer becomes full.",1
+"NameNode uses a java.util.HashMap to store BlockInfo objects. When there are many blocks in HDFS, this map uses a lot of memory in the NameNode. We may optimize the memory usage by a light weight hash table implementation.",1
+The data structure required in BlocksMap is a GettableSet. See also this comment.,1
+"It takes a long time to create a lot of DistributedFileSystem object via FileSystem.create or FileSystem.createNewInstance function.
+In our experience with scribe-hdfs, it can take up to 2 minutes for 100 such calls from each node of a cluster of 40 nodes.
+The reason for the delay is mainly because of the lock on the CACHE object. We should release the lock while creating new FileSystem objects.",1
+"When the namenode is loading the image there is a significant amount of time being spent in the DFSUtil.string2Bytes. We have a very specific workload here. The path that namenode does getPathComponents for shares N - 1 component with the previous path this method was called for (assuming current path has N components).
+Hence we can improve the image load time by caching the result of previous conversion.
+We thought of using some simple LRU cache for components, but the reality is, String.getBytes gets optimized during runtime and LRU cache doesn't perform as well, however using just the latest path components and their translation to bytes in two arrays gives quite a performance boost.
+I could get another 20% off of the time to load the image on our cluster (30 seconds vs 24) and I wrote a simple benchmark that tests performance with and without caching.",1
+"Right now if you try to delete massive number of files from the namenode it will freeze (sometimes for minutes). Most of the time is spent going through the blocks map and invalidating all the blocks.
+This can probably be improved by having a background GC process. The deletion will basically just remove the inode being deleted and then give the subtree that was just deleted to the background thread running cleanup.
+This way the namenode becomes available for the clients soon after deletion, and all the heavy operations are done in the background.",1
+"In benchmarking HDFS-941 I noticed that for the random read workload, the FSDataset lock is highly contended. After converting it to a ReentrantReadWriteLock, I saw a ~25% improvement on both latency and ops/second.",1
+Holding the fsnamesytem lock while calling logSync is unnecessary and decrease NameNode performance.,1
+"I've seen this for a long time, and imagine it's a known issue, but couldn't find an existing JIRA. It often happens that we see the NN schedule replication on the last block of files very quickly after they're completed, before the other DNs in the pipeline have a chance to report the new block. This results in a lot of extra replication work on the cluster, as we replicate the block and then end up with multiple excess replicas which are very quickly deleted.",1
+"If there're many file piled up in recentInvalidateSets, only Math.max(blockInvalidateLimit, 
+20*(int)(heartbeatInterval/1000)) invalid blocks can be carried in a heartbeat.(By default, It's 100). In high write stress, it'll cause process of invalidate blocks removing can not catch up with speed of writing. 
+We extract blockInvalidateLimit to a sperate config parameter that user can make the right configure for your cluster.",1
+"The namenode restart is dominated by the performance of processing block reports. On a 2000 node cluster with 90 million blocks, block report processing takes 30 to 40 minutes. The namenode ""diffs"" the contents of the incoming block report with the contents of the blocks map, and then applies these diffs to the blocksMap, but in reality there is no need to compute the ""diff"" because this is the first block report from the datanode.
+This code change improves block report processing time by 300%.",1
+"Filing this issue in response to ``full disk woes`` on hdfs-user.
+Datanodes fill their storage directories unevenly, leading to situations where certain disks are full while others are significantly less used. Users at many different sites have experienced this issue, and HDFS administrators are taking steps like:
+Manually rebalancing blocks in storage directories
+Decomissioning nodes & later readding them
+There's a tradeoff between making use of all available spindles, and filling disks at the sameish rate. Possible solutions include:
+Weighting less-used disks heavier when placing new blocks on the datanode. In write-heavy environments this will still make use of all spindles, equalizing disk use over time.
+Rebalancing blocks locally. This would help equalize disk use as disks are added/replaced in older cluster nodes.
+Datanodes should actively manage their local disk so operator intervention is not needed.",1
+"Currently, all reads in HDFS require opening and closing the underlying block/meta filechannels. We could pool these filechannels and save some system calls and other work. Since HDFS read requests can be satisfied by positioned reads and transferTos, we can even share these filechannels between concurrently executing requests.
+The attached patch was benchmarked as part of work on HDFS-918 and exhibited a 10% performance increase for small random reads.
+This does not affect client logic and involves minimal change to server logic. Patch is based on branch 20-append.",1
+"When you use Hbase over hadoop. We found during scanning over a large table ( which has many regions and each region has many store files), there're too many connections has been kept between regionserver (act as DFSClient) and datanode. Even if the store file has been complete to scanning, the connections can not be closed.
+In our cluster, too many extra connections cause too many system resource has been wasted, which cause system cpu on region server reach to a high level, then bring this region server down.
+After investigating, we found the number of active connection is very small, and the most connection is idle. We add a timeout checker thread into DFSClient, to close this connection.",1
+This jira aims to make client/datanode or datanode/datanode RPC to have a timeout of DataNode#socketTimeout.,1
+"NameNode normally is busy all the time. Its log is full of activities every second. But once for a while, NameNode seems to pause for more than 10 seconds without doing anything, leaving a blank in its log even though no garbage collection is happening. All other requests to NameNode are blocked when this is happening.
+One culprit is DecommionManager. Its monitor holds the fsynamesystem lock during the whole process of checking if decomissioning DataNodes are finished or not, during which it checks every block of up to a default of 5 datanodes.",1
+{{FSNamesystem.startFileInternal}} should convert the last block of the file opened for append to an under-construction block and return it. This will let remove the second synchronized section in {{FSNamesystem.appendFile()}} and avoid redundant computations and potential inconsistencies as stated in HDFS-1152.,1
+The namenode spends about 10 minutes reading in a 14 GB fsimage file into memory and creating all the in-memory data structures. A jstack based debugger clearly shows that most of the time during the fsimage load is spent in BlocksMap.checkBlockInfo. There is a easy way to optimize this method especially for this code path.,1
+"This has a couple of advantages:
+1. limit the response size;
+2. limit the amount of time when serving getBlocks call, hence improving NN's responsiveness.",1
+"When the namenode decides to exit safemode, it acquires the FSNamesystem lock and then iterates over all blocks in the blocksmap to determine if any block has any excess replicas. This call takes upwards of 5 minutes on a cluster that has 100 million blocks. This delays namenode restart to a good extent.",1
+"The input split returns the locations that host the file blocks in the split. The locations are determined by the getBlockLocations method of the filesystem client which requires a remote connection to the filesystem (i.e. HDFS). The remote connection is made for each file in the entire input split. For jobs with many input files the network connections dominate the cost of writing the input split file.
+A job requests a listing of the input files from the remote filesystem and creates a FileStatus object as a handle for each file in the listing. The FileStatus object can be imbued with the necessary host information on the remote end and passed to the client-side in the bulk return of the listing request. A getHosts method of the FileStatus would then return the locations for the blocks comprising that file and eliminate the need for another trip to the remote filesystem.
+The INodeFile maintains the blocks for a file and is an obvious choice to be the originator for the locations of that file. It is also available to the FSDirectory which first creates the listing of FileStatus objects. We propose that the block locations be generated by the INodeFile to instantiate the FileStatus object during the getListing request.
+Our tests demonstrated a factor of 2000 speedup for approximately 60,000 input files.",1
+"Currently when NN serves the refreshNodes request, it examines every block in the nodes to be decommissioned and put it in the neededReplication queue, during which a write lock is held.
+In our production cluster when decommissioning 100 nodes, we observed that refreshingNodes took minutes, during the period NameNode became non responsive.
+The proposal is that freshNodes only adds the nodes that need to be decommissioned in a queue in DecommissionManager and then return. DecommissionManager then takes care of decommissioning the nodes. This would allow refreshNodes to be returned very quickly.
+This also allows us to optimize DecommisionManager. For example, it could sleep when there is no datanode to be decommissioned while the current code wakes the thread periodically even when no decommission in progress nodes.",1
+"Lease renew RPC changes neither fsdirectory nor blocksMap. It only updates lease related data structure. Since all accesses of lease related data structures are already synced on leaseManager lock, I do not think the lease renew RPC needs to grab the fsnamesystem write lock. This will greatly reduce the pressure on NameNode when there are large number of files are open for writing in an HDFS cluster.",1
+"It was a bit of a puzzle why we can do a full scan of a disk in about 30 seconds during FSDir() or getVolumeMap(), but the same disk took 11 minutes to do Upgrade replication via hardlinks. It turns out that the org.apache.hadoop.fs.FileUtil.createHardLink() method does an outcall to Runtime.getRuntime().exec(), to utilize native filesystem hardlink capability. So it is forking a full-weight external process, and we call it on each individual file to be replicated.
+As a simple check on the possible cost of this approach, I built a Perl test script (under Linux on a production-class datanode). Perl also uses a compiled and optimized p-code engine, and it has both native support for hardlinks and the ability to do ""exec"".
+A simple script to create 256,000 files in a directory tree organized like the Datanode, took 10 seconds to run.
+Replicating that directory tree using hardlinks, the same way as the Datanode, took 12 seconds using native hardlink support.
+The same replication using outcalls to exec, one per file, took 256 seconds!
+Batching the calls, and doing 'exec' once per directory instead of once per file, took 16 seconds.
+Obviously, your mileage will vary based on the number of blocks per volume. A volume with less than about 4000 blocks will have only 65 directories. A volume with more than 4K and less than about 250K blocks will have 4200 directories (more or less). And there are two files per block (the data file and the .meta file). So the average number of files per directory may vary from 2:1 to 500:1. A node with 50K blocks and four volumes will have 25K files per volume, or an average of about 6:1. So this change may be expected to take it down from, say, 12 minutes per volume to 2.
+Attachments",1
+"Refactor the FSDir() and getVolumeMap() call chains in FSDataset, so they share data and run volume-parallel. Currently the two constructors for in-memory directory tree and replicas map run THREE full scans of the entire disk - once in FSDir(), once in recoverTempUnlinkedBlock(), and once in addToReplicasMap(). During each scan, a new File object is created for each of the 100,000 or so items in the native file system (for a 50,000-block node). This impacts GC as well as disk traffic.
+This work item is one of four sub-tasks for HDFS-1443, Improve Datanode startup time.",1
+"Make getGenerationStampFromFile() more efficient. Currently this routine is called by addToReplicasMap() for every blockfile in the directory tree, and it walks each file's containing directory on every call. There is a simple refactoring that should make it more efficient.
+This work item is one of four sub-tasks for HDFS-1443, Improve Datanode startup time.
+The fix will probably be folded into sibling task HDFS-1446, which is already refactoring the method that calls getGenerationStampFromFile()",1
+"If secondary namenode could verify that the image it has on its disk is the same as the one in the primary NameNode, it could skip downloading the image from the primary NN, thus completely eliminating the image download overhead.",1
+"When we do a massive deletion of files, we saw some timeouts in writers who's writing to HDFS. This does not happen to all DataNodes, but it's happening regularly enough that we would like to fix it.
+yyy.xxx.com: 10/10/25 00:55:32 WARN hdfs.DFSClient: DFSOutputStream ResponseProcessor exception  for block blk_-5459995953259765112_37619608java.net.SocketTimeoutException: 69000 millis timeout while waiting for channel to be ready for read. ch : java.nio.channels.SocketChannel[connected local=/10.10.10.10:56319 remote=/10.10.10.10:50010]
+This is caused by the default setting of AsyncDiskService, which starts 4 threads per volume to delete files.",1
+"Currently HBase uses append to trigger the close of HLog during Hlog split. Append is a very expensive operation, which involves not only NameNode operations but creating a writing pipeline. If one of datanodes on the pipeline has a problem, this recovery may takes minutes. I'd like implement a lightweight NameNode operation to trigger lease recovery and make HBase to use this instead.",1
+"In a big cluster, when namenode starts up, it takes a long time for namenode to process block reports from all datanodes. Because heartbeats processing get delayed, some datanodes are erroneously marked as dead, then later on they have to register again, thus wasting time.
+It would speed up starting time if the checking of dead nodes is disabled when namenode in safemode.",1
+"Currently on file creation inside of FSNamesystem.startFileInternal there are three calls to FSDirectory that are essentially the same:
+dir.exists(src)
+dir.isDir(src)
+dir.getFileInode(src)
+All of them have to fetch the inode and then do some processing on it.
+If instead we were to fetch the inode once and then do all of the processing on this INode object it would save us two trips through the namespace + 2 calls to normalizePath all of which are relatively expensive.",1
+"public void journal(NamenodeRegistration registration,
+                      int jAction,
+                      int length,
+                      byte[] records) throws IOException;
+During the name-node throughput benchmark, the size of byte array records is around 8000. Then the serialization and deserialization is time-consuming. I wrote a simple application to test RPC with byte array parameter. When the size got to 8000, each RPC call need about 6 ms. While name-node sync 8k byte to local disk only need 0.3~0.4ms.",1
+"I noticed in an hbase benchmark that the packet counts in my network monitoring seemed high, so took a short pcap trace and found that each pipeline ACK was being sent as five packets, the first four of which only contain one byte. We should buffer these bytes and send the PipelineAck as one TCP packet.",1
+"Hbase does concurrent preads from multiple threads to different blocks of the same hdfs file. Each of these pread calls invoke DFSInputStream.getFileLength() and DFSInputStream.getBlockAt(). These methods are ""synchronized"", thus causing all the concurrent threads to serialize. It would help performance to convert this to a Read/Write lock",1
+"It was a bit of a puzzle why we can do a full scan of a disk in about 30 seconds during FSDir() or getVolumeMap(), but the same disk took 11 minutes to do Upgrade replication via hardlinks. It turns out that the org.apache.hadoop.fs.FileUtil.createHardLink() method does an outcall to Runtime.getRuntime().exec(), to utilize native filesystem hardlink capability. So it is forking a full-weight external process, and we call it on each individual file to be replicated.
+As a simple check on the possible cost of this approach, I built a Perl test script (under Linux on a production-class datanode). Perl also uses a compiled and optimized p-code engine, and it has both native support for hardlinks and the ability to do ""exec"".
+A simple script to create 256,000 files in a directory tree organized like the Datanode, took 10 seconds to run.
+Replicating that directory tree using hardlinks, the same way as the Datanode, took 12 seconds using native hardlink support.
+The same replication using outcalls to exec, one per file, took 256 seconds!
+Batching the calls, and doing 'exec' once per directory instead of once per file, took 16 seconds.
+Obviously, your mileage will vary based on the number of blocks per volume. A volume with less than about 4000 blocks will have only 65 directories. A volume with more than 4K and less than about 250K blocks will have 4200 directories (more or less). And there are two files per block (the data file and the .meta file). So the average number of files per directory may vary from 2:1 to 500:1. A node with 50K blocks and four volumes will have 25K files per volume, or an average of about 6:1. So this change may be expected to take it down from, say, 12 minutes per volume to 2.",1
+"DFSClient can Compress the data when transmitting it over the network, Data Nodes can forward the same compressed data to other Data Nodes in pipeline and as well as it can decompress that data and write on to their local disks.
+In Read Scenario:
+Data Node can compress the data when transmitting it over the network. DFSClient can decompress it and write on to the local stream.",1
+"Currently in order to figure out a directory size, we have to list a directory by calling RPC getListing and get the number of its children. This is an expensive operation especially when a directory has many children because it may require multiple RPCs.
+On the other hand when fetching the status of a path (i.e. calling RPC getFileInfo), the length field of FileStatus is set to be 0 if the path is a directory.
+I am thinking to change this field (FileStatus#length) to be the directory size when the path is a directory. So we can call getFileInfo to get the directory size. This call is much less expensive and simpler than getListing.",1
+"The current implementation of block reporting has the datanode send the entire list of blocks resident on that node in every report, hourly. BlockManager.processReport in the namenode runs each block report through reportDiff() first, to build four linked lists of replicas for different dispositions, then processes each list. During that process, every block belonging to the node (even the unchanged blocks) are removed and re-linked in that node's blocklist. The entire process happens under the global FSNamesystem write lock, so there is essentially zero concurrency. It takes about 90 milliseconds to process a single 50,000-replica block report in the namenode, during which no other read or write activities can occur.
+There are several opportunities for improvement in this design. In order of probable benefit, they include:
+1. Change the datanode to send a differential report. This saves the namenode from having to do most of the work in reportDiff(), and avoids the need to re-link all the unchanged blocks during the ""diff"" calculation.
+2. Keep the linked lists of ""to do"" work, but modify reportDiff() so that it can be done under a read lock instead of the write lock. Then only the processing of the lists needs to be under the write lock. Since the number of blocks changed is usually much smaller than the number unchanged, this should improve concurrency.
+3. Eliminate the linked lists and just immediately process each changed block as it is read from the block report. The work on HDFS-1295 indicates that this might save a large fraction of the total block processing time at scale, due to the much smaller number of objects created and garbage collected during processing of hundreds of millions of blocks.
+4. As a sidelight to #3, remove linked list use from BlockManager.addBlock(). It currently uses linked lists as an argument to processReportedBlock() even though addBlock() only processes a single replica on each call. This should be replaced with a call to immediately process the block instead of enqueuing it.",1
+"In some test scenarios, if block pools are added and removed frequently, the block scanner runs in tight loop.",1
+"Consider a large cluster that takes 40 minutes to start up. The datanodes compete to register and send their Initial Block Reports (IBRs) as fast as they can after startup (subject to a small sub-two-minute random delay, which isn't relevant to this discussion).
+As each datanode succeeds in sending its IBR, it schedules the starting time for its regular cycle of reports, every hour (or other configured value of dfs.blockreport.intervalMsec). In order to spread the reports evenly across the block report interval, each datanode picks a random fraction of that interval, for the starting point of its regular report cycle. For example, if a particular datanode ends up randomly selecting 18 minutes after the hour, then that datanode will send a Block Report at 18 minutes after the hour every hour as long as it remains up. Other datanodes will start their cycles at other randomly selected times. This code is in DataNode.blockReport() and DataNode.scheduleBlockReport().
+The ""second Block Report"" (2BR), is the start of these hourly reports. The problem is that some of these 2BRs get scheduled sooner rather than later, and actually occur within the startup period. For example, if the cluster takes 40 minutes (2/3 of an hour) to start up, then out of the datanodes that succeed in sending their IBRs during the first 10 minutes, between 1/2 and 2/3 of them will send their 2BR before the 40-minute startup time has completed!
+2BRs sent within the startup time actually compete with the remaining IBRs, and thereby slow down the overall startup process. This can be seen in the following data, which shows the startup process for a 3700-node cluster that took about 17 minutes to finish startup:",1
+"On startup, the namenode will read the fs image, apply edits, then rewrite the fs image. This requires a non-trivial amount of time for very large directory structures. Perhaps the namenode should employ some logic to decide that the edits are simple enough that it doesn't warrant rewriting the image back out to disk.
+A few ideas:
+Use the size of the edit logs, if the size is below a threshold, assume it's cheaper to reprocess the edit log instead of writing the image back out.
+Time the processing of the edits and if the time is below a defined threshold, the image isn't rewritten.
+Timing the reading of the image, and the processing of the edits. Base the decision on the time it would take to write the image (a multiplier is applied to the read time?) versus the time it would take to reprocess the edits. If a certain threshold (perhaps percentage or expected time to rewrite) is exceeded, rewrite the image.
+Somethingalong the lines of the last suggestion may allow for defaults that adapt for any size cluster, thus eliminating the need to keep tweaking a cluster's settings based on its size.",1
+The current implementation of HDFS pipelines the writes to the three replicas. This introduces some latency for realtime latency sensitive applications. An alternate implementation that allows the client to write all replicas in parallel gives much better response times to these applications.,1
+"According to JavaDoc, a non-fair lock will normally have higher throughput than a fair lock. Our experiment also shows an improved performance when using a non-fair lock. We should switch namenode to use non-fair locks.",1
+"HDFS-1120 introduced pluggable block-volume choosing policies, but still carries the vanilla RoundRobin as its default.
+An additional implementation that also takes into consideration the free space remaining on the disk (or other params) should be a good addition as an alternative to vanilla RR.",1
+"$ /usr/sbin/lsof -i TCP:50010 | grep -c CLOSE_WAIT
+4471
+
+It is better if everything runs normal. 
+However, from time to time there are some ""DataStreamer Exception: java.net.SocketTimeoutException"" and ""DFSClient.processDatanodeError(2507) | Error Recovery for"" can be found from log file and the number of CLOSE_WAIT socket just keep increasing
+
+The CLOSE_WAIT handles may remain for hours and days; then ""Too many open file"" some day.
+",1
+"In DFSClient, when there are files opened for write, a LeaseChecker thread is started for updating the leases periodically. However, it never terminates when when all writing files are closed.",1
+"While discussing HDFS-15 with Todd he made the observation that BlockManager#isReplicationNeeded is expensive at scale because it iterates over the list of all datanodes. If this method is in fact called frequently enough to be measurable, there are some places we can probably help.
+There are a couple of places where we can remove calls to isReplicationNeeded:
+In processPendingReplications, we can unconditionally add the block to neededReplications (w/o checking isReplicationNeeded) because a block wouldn't be in pendingReplications (which is where the timed out blocks come from) if it didn't need replication.
+BlockManager#blockHasEnoughRacks could be modified to only call getNumberOfRacks conditionally for the replFactor=1 case.
+There are some simple improvements we could make to the method itself, eg:
+Allocate the hash set with an initial size of 2 rather than 0 because we'd expect a block to be available on 2 racks. ArrayList(3) might be a better option here since n is small.
+It also doesn't need to check rackSet.contains before calling rackSet.add since rackSet is a set.
+Keep a count numUniqueRacks (if (rackSet.add(name)) numUniqueRacks++) rather than call Set#size.
+A couple other things I noticed while looking at the code:
+The logic in isReplicationInProgress that checks curReplicas < curExpectedReplicas right after isNeededReplication (a more stringent check) needs validating/a comment. I think the intent is to only count the block as under replicated only if it has an insufficient total # replicas (vs not being on enough racks) because we do not want to prevent the given DN from being decomissioned just because its blocks are not replicated across enough racks (which may not even be possible if there's 1 rack and a topology script is configured). Ie a DN could never be comissioned if a topology script is enabled and there's just 1 rack. Needs a test.
+A better name for shouldCheckForEnoughRacks would be isMultiRack, and blockNeedsReplication instead of isNeededReplication
+We should warn if a topology script is configured and only 1 rack is used, because blocks will never leave neededReplications in this case all blocks will always stay in the neededReplications queue, which is correct but may slow things down or consume a substantial amount of memory.",1
+Each DFSClient runs a LeaseChecker thread within a JVM. The number threads could be reduced by sharing the threads.,1
+"This is the reason that TestFileConcurrentReaders has been failing a lot. Reproducing a comment from HDFS-1057:
+
+The test has a thread which continually re-opens the file which is being written to. Since the file's in the middle of being written, it makes an RPC to the DataNode in order to determine the visible length of the file. This RPC is authenticated using the block token which came back in the LocatedBlocks object as the security ticket.
+
+When this RPC hits the IPC layer, it looks at its existing connections and sees none that can be re-used, since the block token differs between the two requesters. Hence, it reconnects, and we end up with hundreds or thousands of IPC connections to the datanode.
+",1
+"FSNamesystem#deleteInternal releases the write lock before syncing the log, however FSNamesystem#startFileInternal calls delete -> deleteInternal with the write lock held, which means deleteInternal will sync the log while holding the lock. We could fix cases like this by passing a flag indicating whether the function should sysnc (eg in this case the sysnc is not necessary because startFileInternals callers will sync the log) or modify the current calls to sync to flag that a sync is necessary before returning to the caller rather than doing the sync right at the call sight. This way the cost of syncing the log could be amortized over multiple function calls (and potentially multiple RPCs if we didn't mind introducing some synchronization).",1
+"We've been talking about this for a long time... would be nice to use something like protobufs or Thrift for some of our wire protocols.
+I knocked together a prototype of DataTransferProtocol on top of proto bufs that seems to work.",1
+I've developed a series of patches that speeds up the HDFS read path by a factor of about 2.5x (~300M/sec to ~800M/sec for localhost reading from buffer cache) and also will make it easier to allow for advanced users (eg hbase) to skip a buffer copy.,1
+"Namenode has two main components, block management and namespace management. The ultimate goal is to allow BM and NM running in separated servers. The short-term goal is to separate the codes.",1
+"In practice, we find that a lot of users store text data in HDFS without using any compression codec. Improving usability of compressible formats like Avro/RCFile helps with this, but we could also help many users by providing an option to transparently compress data as it is stored.",1
+"Idea: when a DFSClient reads an off-switch replica, we could tee an extra, temporal replica to the local DN if the NN thinks it makes sense.
+Then we could delete the ones which were part of the original 2 on the rack to rebalance or just rely on the balancer... all this would ensure better spread across the cluster. This would also help with hotspots on datasets.",1
+"This is an umbrella task to group the improvements in Namenode startup latency made over the last few months, and track remaining ideas.",1
+"BlockReader is currently quite complicated since it has to conform to the FSInputChecker inheritance structure. It would be much simpler to implement it standalone. Benchmarking indicates it's slightly faster, as well.",1
+"{{EditLogFileOutputStream.close(...)}} sequentially closes a series of underlying resources. If any of the calls to {{close()}} throw before the last one, the later resources will never be closed.",1
+"There is a need to perform fast file copy on HDFS. The fast copy mechanism for a file works as
+follows :
+1) Query metadata for all blocks of the source file.
+2) For each block 'b' of the file, find out its datanode locations.
+3) For each block of the file, add an empty block to the namesystem for
+the destination file.
+4) For each location of the block, instruct the datanode to make a local
+copy of that block.
+5) Once each datanode has copied over its respective blocks, they
+report to the namenode about it.
+6) Wait for all blocks to be copied and exit.
+This would speed up the copying process considerably by removing top of
+the rack data transfers.
+Note : An extra improvement, would be to instruct the datanode to create a
+hardlink of the block file if we are copying a block on the same datanode",1
+"While working on HDFS-988 I noticed that the locking in FSNamesystem and FSDirectory could be improved. Some observations:
+The namesystem lock (fsLock) is always taken before acquiring the directory lock (dirLock). Therefore the only time when the directory lock is needed is when the fsLock is taken for reading and the directory lock is taken for writing, but I don't think that ever happens. Therefore we can probably get rid of the directory lock.
+In HDFS-988 I modified handleHeartbeat to take the read lock so it's synchronized with register datanode. I also added a missing synchronization of datanodeMap to wipeDatanode because handleHeartbeat calls getDatanode() while only holding locks on heartbeats and datanodeMap, but registerDatanode mutates datanodeMap without locking either. We should revisit which locks/synchronization protect which data structures, there may be other similar bugs and also opportunities to increase parallelism.",1
+"scusses ways to optimize reads for local clients. A clean design is fairly involved. A load shortcut has been proposed
+where the client access the hdfs file blocks directly; this works if the client is the same user/group as the DN daemon. 
+This is non-invasive and is a good short term solution till",1
+"As explained in issue HADOOP-3797, stat takes a long time to execute.
+I got a clearer idea of the time needed when testing a c program that needed to crawl a directory tree, that contains 10s of directories and 100K files. The original version used stat() to make the difference between files an folders. It needed about 1h to complete. I corrected it to use dirent.d_type, which provides the same information and is available at no extra cost when using readdir. The execution time changed to 2-3 mins.
+I tried to do other benchmarks using ls with or without color, and on the local file system, I got a speedup of 1.3, while on hdfs, the speedup was of 5.7. This means (very roughly) that calling stat with fuse is 5.7/1.3 = 4.4 times slower.
+When using application that rely on stat to work correctly (there is sometimes no other way to make the difference between a file and a folder), this can be a major source of delay. The application I am working on needs to stat about 30'000 files; a faster stat() function would save me hours (per task).
+I am sure that I am not the only one who would appreciate a speedup, so I suppose this issue should be put into consideration.
+I do not know if the bottleneck is the call to hdfsGetPathInfo or to doConnectAsUser, but if it comes from doConnectAsUser, some improvements can surely be made.
+And in the worst case, caching might help, as suggested in HADOOP-3797.",1
+"In certain circumstances the DFSClient may detect a block as being bad without reporting it promptly to the NN.
+If when reading a file a client finds an invalid checksum of a block, it immediately reports that bad block to the NN. If when serving up a block a DN finds a truncated block, it reports this to the client, but the client merely adds that DN to the list of dead nodes and moves on to trying another DN, without reporting this to the NN.",1
+"Post HDFS-1073, this method is now a no-op. All it does currently is validate the CheckpointSignature provided, but does nothing to mutate NN state.",1
+"As disks are getting larger and more plentiful, we're seeing DNs with multiple millions of blocks on a single machine. When page cache space is tight, block reports can take multiple minutes to generate. Currently, during the scanning of the data directories to generate a report, the FSVolumeSet lock is held. This causes writes and reads to block, timeout, etc, causing big problems especially for clients like HBase.
+
+This JIRA is to explore some of the ideas originally discussed in HADOOP-4584 for the 0.20.20x series.",1
+"This JIRA is to track a couple of potential improvements to the speed of block report generation while scanning the disks. In 0.20, the disks are scanned for every block report, though in trunk the block reports are generally built from memory.",1
+"Improve the concurrency of SerialNumberMap in NameNode After enabled permission checking in our HDFS test cluster, our benchmark observed a significant reduced concurrency in NameNode. Investigation showed that most threads were blocked at acquiring the lock of org.apache.hadoop.hdfs.server.namenode.SerialNumberManager$SerialNumberMap. We used concurrentHashMap to replace Hashmap + synchronized methods, which greatly improved the situation.",1
+recoverTempUnlinkedBlock & addToReplicasMap can be optimized to do in single scan in FSDataset.,1
+"This is the HDFS side of HADOOP-7714. The initial implementation is heuristic based and should be considered experimental, as discussed in the parent JIRA. It should be off by default until better heuristics, APIs, and tuning experience is developed. Add HDFS support for fadvise readahead and drop-behind",1
+"The main bottlenecks addressed by this patch are:
+-cluster instability times, when these queues (especially under-replicated) tend to grow quite drastically,
+-initial cluster startup, when the queues are initialized, after leaving safemode,
+-block reports,
+-explicit acks for block addition and deletion
+1. The introduced structures are CPU-optimized.
+2. They shrink and expand according to current capacity.
+3. Add/contains/delete ops are performed in O(1) time (unlike current log n for TreeSet).
+4. The sets are equipped with fast access methods for polling a number of elements (get+remove), which are used for handling the queues. More CPU efficient data structure for under-replicated/over-replicated/invalidate blocks",1
+"When a block report is processed at the NN, the BlockManager.reportDiff traverses all blocks contained in the report, and for each one block, which is also present in the corresponding datanode descriptor, the block is moved to the head of the list of the blocks in this datanode descriptor.
+With HDFS-395 the huge majority of the blocks in the report, are also present in the datanode descriptor, which means that almost every block in the report will have to be moved to the head of the list.
+Currently this operation is performed by DatanodeDescriptor.moveBlockToHead, which removes a block from a list and then inserts it. In this process, we call findDatanode several times (afair 6 times for each moveBlockToHead call). findDatanode is relatively expensive, since it linearly goes through the triplets to locate the given datanode.
+With this patch, we do some memoization of findDatanode, so we can reclaim 2 findDatanode calls. Our experiments show that this can improve the reportDiff (which is executed under write lock) by around 15%. Currently with HDFS-395, reportDiff is responsible for almost 100% of the block report processing time.",1
+"Currently, FSNamesystem operations are protected by a single ReentrantReadWriteLock, which allows for having multiple concurrent readers to perform reads, and a single writer to perform writes. There are, however, operations whose execution has primarily reading nature, but occasionally they write.
+The finest example is processing block reports - currently the entire processing is done under writeLock(). With HDFS-395 (explicit deletion acks), processing a block report is primarily a read operation (reportDiff()) after which only very few blocks need to be updated. In fact, we noticed this number to be very low, or even zero blocks.
+It would be desirable to have an upgradeable read lock, which would allow for performing other reads during the first ""read"" part of reportDiff() (and possibly other operations.
+We implemented such mechanism, which provides writeLock(), readLock(), upgradeableReadLock, upgradeLock(), and downgradeLock(). I achieved this be emloying two ReentrantReadWriteLock's - one protects writes (lock1), the other one reads (lock2).
+Hence, we have:
+writeLock()
+lock1.writeLock().lock()
+lock2.writeLock().lock()
+readLock()
+lock2.readLock().lock()
+upgradeableReadLock()
+lock1.writeLock().lock()
+upgrade()
+lock2.writeLock().lock()
+--------------------------
+Hence a writeLock() is essentially equivalent to upgradeableLock()+upgrade()
+two writeLocks are mutually exclusive because of lock1.writeLock
+a writeLock and upgradeableLock are mutually exclusive as above
+readLock is mutually exclusive with upgradeableLock()+upgrade() OR writeLock because of lock2.writeLock
+readLock() + writeLock() causes a deadlock, the same as currently
+writeLock() + readLock() does not cause deadlocks
+--------------------------
+I am conviced to the soundness of this mechanism.
+The overhead comes from having two locks, and in particular, writes need to acquire both of them.
+We deployed this feature, we used the upgradeableLock() ONLY for processing reports.
+Our initial, but not exhaustive experiments have shown that it had a very detrimental effect on the NN throughput - writes were taking up to twice as long.
+This is very unexpected, and hard to explain by only the overhead of acquiring additional lock for writes.
+I would like to ask for input, as maybe I am missing some fundamental problem here.
+I am attaching a java class which implements this locking mechanism",1
+"As part of the reliable test,
+Scenario:
+Initially check the socket count. ---there are aroud 42 sockets are there.
+open the file with DataNode http address using op=OPEN request parameter about 500 times in loop.
+Wait for some time and check the socket count. — There are thousands of ESTABLISHED sockets are growing. ~2052",1
+"ncrease granularFor processing blocks in ReplicationMonitor (BlockManager.computeReplicationWork), we first obtain a list of blocks to be replicated by calling chooseUnderReplicatedBlocks, and then for each block which was found, we call computeReplicationWorkForBlock. The latter processes a block in three stages, acquiring the writelock twice per call:
+1. obtaining block related info (livenodes, srcnode, etc.) under lock
+2. choosing target for replication
+3. scheduling replication (under lock) ity of write operations in ReplicationMonitor thus reducing contention for write lock",1
+"While running a workload with concurrent writes and deletes, I saw a lot of NotReplicatedYetExceptions being thrown due to late arrivals of blockReceived reports from the DN. Looking at the DN logs, I found that the blockReceived message was being delayed as much as 15 seconds because the OfferService thread was blocked on file system operations processing deletes. We previously moved the deletions to another thread, but it still accesses the file system to determine the block length in the main thread. On a heavily loaded system this can take a long time. Avoid file system operations in BPOfferService thread while processing deletes",1
+"When a node fails or is decommissioned, a large number of blocks become under-replicated. Since re-replication work is distributed, the hope would be that all blocks could be restored to their desired replication factor in very short order. This doesn't happen though because the load the cluster is willing to devote to this activity is mostly static (controlled by configuration variables). Since it's mostly static, the rate has to be set conservatively to avoid overloading the cluster with replication work.
+This problem is especially noticeable when you have lots of small blocks. It can take many hours to re-replicate the blocks that were on a node while the cluster is mostly idle.",1
+"As HDFS-2115, we want to provide a mechanism to improve storage usage in hdfs by compression. Different from HDFS-2115, this issue focus on compress storage. Some idea like below:
+
+To do:
+1. compress cold data.
+   Cold data: After writing (or last read), data has not touched by anyone for a long time.
+   Hot data: After writing, many client will read it , maybe it'll delele soon.
+   
+   Because hot data compression is not cost-effective,  we only compress cold data. 
+   In some cases, some data in file can be access in high frequency,  but in the same file, some data may be cold data. 
+To distinguish them, we compress in block level.
+
+2. compress data which has high compress ratio.
+   To specify high/low compress ratio, we should try to compress data, if compress ratio is too low, we'll never compress them.
+
+2. forward compatibility.
+    After compression, data format in datanode has changed. Old client will not access them. To solve this issue, we provide a mechanism which decompress on datanode.
+
+3. support random access and append.
+   As HDFS-2115, random access can be support by index. We separate data before compress by fixed-length (we call these fixed-length data as ""chunk""), every chunk has its index.
+When random access, we can seek to the nearest index, and read this chunk for precise position.   
+
+4. async compress to avoid compression slow down running job.
+   In practice, we found the cluster CPU usage is not uniform. Some clusters are idle at night, and others are idle at afternoon. We should make compress 
+task running in full speed when cluster idle, and in low speed when cluster busy.
+
+Will do:
+1. client specific codec and support  compress transmission.",1
+"Playing with trunk, I managed to get a DataNode in a situation where the BlockPoolSliceScanner is spinning in the following loop, using 100% CPU:
+        at org.apache.hadoop.hdfs.server.datanode.DataNode$BPOfferService.isAlive(DataNode.java:820)
+        at org.apache.hadoop.hdfs.server.datanode.DataNode.isBPServiceAlive(DataNode.java:2962)
+        at org.apache.hadoop.hdfs.server.datanode.BlockPoolSliceScanner.scan(BlockPoolSliceScanner.java:625)
+        at org.apache.hadoop.hdfs.server.datanode.BlockPoolSliceScanner.scanBlockPoolSlice(BlockPoolSliceScanner.java:614)
+        at org.apache.hadoop.hdfs.server.datanode.DataBlockScanner.run(DataBlockScanner.java:95)
+",1
+"CheckPoint NameNode uses a lot of memory to merge the edits to the fsimage.
+And the previous checkpoint data cannot easily be GCed.
+It is running with jdk-sun-1.6 with different GC parameters, JProfiler calculated heap size shown below:
+For 1MB sized fsimage, -XX:-UseConcMarkSweepGC, heap size increases 10MB every checking period.
+For 1MB sized fsimage, -XX:-UseParallelGC, heap size increases and back to 10M every checking period.
+For 1.2GB sized fsimage, both GC mode, heap size increases 2.5GB every checking period.
+I have two workaround, both of them are tested work fine. But I want discuss more about the CheckPoint design.
+Workaround 1: set the check period to a very long time, and restart the java process every hour. 
+Pro: solves full GC problem immediately.
+Con: Cannot merge edits when it increased suddenly.
+Workaround 2: also reset the INode tree structure when reset the root node.
+Pro: both CMS and Parallel mode works
+Con: This may be a JDK-specific problem.",1
+"Sometimes Clients like HBase are required to dynamically compute the datanodes it wishes to place the blocks for a file for higher level of locality. For this purpose there is a need of a way to give the Namenode a hint in terms of a favoredNodes parameter about the locations where the client wants to put each block. The proposed solution is a favored nodes parameter in the addBlock() method and in the create() file method to enable the clients to give the hints to the NameNode about the locations of each replica of the block. Note that this would be just a hint and finally the NameNode would look at disk usage, datanode load etc. and decide whether it can respect the hints or not.",1
+Per HDFS-2654 BlockReaderLocal#skip performs the skip by reading the data so we stay in sync with checksums. This could be implemented more efficiently in the future to skip to the beginning of the appropriate checksum chunk and then only read to the middle of that chunk.,1
+"urrently, the implementation of libhdfs is based on JNI. The overhead of JVM seems a little big, and libhdfs can also not be used in the environment without hdfs.
+It seems a good idea to implement a pure c client by wrapping webhdfs. It also can be used to access different version of hdfs.",1
+"BackupNode can make periodic checkpoints without downloading image and edits files from the NameNode, but with just saving the namespace to local disks. This is not happening because NN renews checkpoint time after every checkpoint, thus making its image ahead of the BN's even though they are in sync.",1
+"The current implementation of HDFS stores the data in one block file and the metadata(checksum) in another block file. This means that every read from HDFS actually consumes two disk iops, one to the datafile and one to the checksum file. This is a major problem for scaling HBase, because HBase is usually bottlenecked on the number of random disk iops that the storage-hardware offers.",1
+"During loading the edits journal FSEditLog.loadEditRecords() processes OP_ADD inefficiently. It first removes the existing INodeFile from the directory tree, then adds it back as a regular INodeFile, and then replaces it with INodeFileUnderConstruction if files is not closed. This slows down edits loading. OP_ADD should be done in one shot and retain previously existing data.",1
+"Now that we have direct reads from local HDFS block files (HDFS-2246), it might make sense to make FSDataInputStream support fadvise calls. I have an application (HBase) that would like to tell the OS that it should not buffer data in the OS buffer cache.",1
+"HDFS-2465 has some code which attempts to disable the ""drop cache behind reads"" functionality when the reads are <256KB (eg HBase random access). But this check was missing in the {{close()}} function, so it always drops cache behind reads regardless of the size of the read. This hurts HBase random read performance when this patch is enabled.",1
+"HDFS currently supports configuration where storages are a list of directories. Typically each of these directories correspond to a volume with its own file system. All these directories are homogeneous and therefore identified as a single storage at the namenode. I propose, change to the current model where Datanode * is a * storage, to Datanode * is a collection * of strorages.",1
+"The DFSInputStream read-path always copies bytes into a JVM-allocated byte[]. Although for many clients this is desired behaviour, in certain situations, such as native-reads through libhdfs, this imposes an extra copy penalty since the byte[] needs to be copied out again into a natively readable memory area.
+For these cases, it would be preferable to allow the client to supply its own buffer, wrapped in a ByteBuffer, to avoid that final copy overhead.",1
+"After Balancer runs, usedSpace is not balancing correctly.
+java.util.concurrent.TimeoutException: Cluster failed to reached expected values of totalSpace (current: 1500, expected: 1500), or usedSpace (current: 390, expected: 300), in more than 20000 msec.
+ at org.apache.hadoop.hdfs.server.balancer.TestBalancer.waitForHeartBeat(TestBalancer.java:233)
+ at org.apache.hadoop.hdfs.server.balancer.TestBalancerWithHANameNodes.testB",1
+"When deleting a large directory with millions of files, namenode holding FSNamesystem lock will make it unresponsive for other request. In this scenario HDFS-173 added a mechanism to delete blocks in smaller chunks holding the locks. With new read/write lock changes, the mechanism from HDFS-173 is lost. Need to resurrect the mechanism back. Also a good unit test/update to existing unit test is needed to catch future errors with this functionality.",1
+"For every one of the edit log segments, it seems like we are calling listFiles on the edit log directory inside of {{findMaxTransaction}}. This is killing performance, especially when there are many log segments and the directory is stored on NFS. It is taking several minutes to start up the NN when there are several thousand log segments present.",1
+"HDFS-2653 added negative caching of local addrs, however it still goes through the fall through path every time if the address is non-local. ",1
+"One of the performance issues noticed in the HA branch is due to the much larger edit logs, now that we are writing OP_ADD transactions to the edit log on every block allocation. We can condense these calls down in two ways:
+1) use variable-length integers for the block list length, size, and genstamp (most of these end up fitting in far less than 8 bytes)
+2) use delta-coding for the genstamp and block size for any blocks after the first block (most blocks will be the same size and only slightly higher genstamps)
+3) introduce a new OP_UPDATE_BLOCKS transaction that doesn't re-serialize metadata information like lease owner, permissions, etc
+4) allow OP_UPDATE_BLOCKS to only re-serialize the blocks that have changed for a given transaction",1
+In looking at stack traces of a NN under a heavy block allocation load (around a thousand per second) I see that a lot of time is being taken up in stringification of log messages for addStoredBlock. This code can be optimized to use a single StringBuilder instead of a lot of nested toString() calls.,1
+"ixes the ""automatic log sync"" functionality so that, when logEdits is called without log sync, it eventually triggers a sync. That sync ends up being inline, though, which means the FSN lock is usually held during it. This causes a bunch of threads to pile up.
+Instead, we should have it just set a ""syncNeeded"" flag and trigger a sync from another thread which isn't holding the lock (or from the same thread using a ""logSyncIfNeeded"" call).
+(credit to the FB branch for this idea)",1
+"Currently to create a file, the client makes two requests: the first to create the file, the second to allocate the block. In an HA setup, both of these necessitate a sync of the edit logs. In all setups, it requires an unnecessary round trip. We should consider piggy-backing the allocation of the first block with the create() call since it will be needed almost all the time.",1
+It will be nice if we can get a new API from FSDtaInputStream that allows for zero-copy read for hdfs readers.,1
+"While reading the file, we will add the DN to deadNodes list and will skip from reads.
+If we are reading very huge file (may take hours), and failed read from local datanode, then this will be added to deadnode list and will be excluded for the further reads for that file.
+If the local node recovered immediately,but that will not used for further read. Read may continue with the remote nodes. It will effect the read performance.
+It will be good if we reconsider the local node after certain period based on some factors.",1
+"Once HDFS-2834 gets committed, we can add support for the new API to libhdfs, which leads to significant performance increases when reading local data from C.",1
+Support multiple network interfaces,1
+"covers using multiple interfaces on the server (Datanode) side. Clients should also be able to utilize multiple local interfaces for outbound connections instead of always using the interface for the local hostname. This can be accomplished with a new configuration parameter (dfs.client.local.interfaces) that accepts a list of interfaces the client should use. Acceptable configuration values are the same as the dfs.datanode.available.interfaces parameter. The client binds its socket to a specific interface, which enables outbound traffic to use that interface. Binding the client socket to a specific address is not sufficient to ensure egress traffic uses that interface. Eg if multiple interfaces are on the same subnet the host requires IP rules that use the source address (which bind sets) to select the destination interface. The SO_BINDTODEVICE socket option could be used to select a specific interface for the connection instead, however it requires JNI (is not in Java's SocketOptions) and root access, which we don't want to require clients have.
+Like HDFS-3147, the client can use multiple local interfaces for data transfer. Since the client already cache their connections to DNs choosing a local interface at random seems like a good policy. Users can also pin a specific client to a specific interface by specifying just that interface in dfs.client.local.interfaces.
+This change was discussed in HADOOP-6210 a while back, and is actually useful/independent of the other HDFS-3140 changes.",1
+"Block scanning interval by default should be taken as 21 days(3 weeks) and each block scanning should happen once in 21 days.
+Here the block is being scanned continuosly.
+
+2012-04-03 10:44:47,056 INFO org.apache.hadoop.hdfs.server.datanode.BlockPoolSliceScanner: Verification succeeded for BP-241703115-xx.xx.xx.55-1333086229434:blk_-2666054955039014473_1003
+2012-04-03 10:45:02,064 INFO org.apache.hadoop.hdfs.server.datanode.BlockPoolSliceScanner: Verification succeeded for BP-241703115-xx.xx.xx.55-1333086229434:blk_-2666054955039014473_1003
+2012-04-03 10:45:17,071 INFO org.apache.hadoop.hdfs.server.datanode.BlockPoolSliceScanner: Verification succeeded for BP-241703115-xx.xx.xx.55-1333086229434:blk_-2666054955039014473_1003
+2012-04-03 10:45:32,079 INFO org.apache.hadoop.hdfs.server.datanode.BlockPoolSliceScanner: Verification succeeded for BP-241703115-xx.xx.xx.55-1333086229434:blk_-2666054955039014473",1
+"expose multiple DN interfaces to the client. In order for clients, in aggregate, to use multiple DN interfaces clients should pick different interfaces when transferring blocks. Given that we cache client <-> DN connections the policy of picking a remote interface at random for each new connection seems best (vs round robin for example). In the future we could make the client congestion aware. We could also establish multiple connections between the client and DN and therefore use multiple interfaces for a single block transfer. Both of those are out of scope for this jira.",1
+"The read path through BlockReaderLocal does not take advantage of readahead or drop-behind in the way that BlockSender does. We could arguably stand to gain even more from hinting about read patterns to the kernel here, so we should add the same mechanisms to BlockReaderLocal.",1
+"HDFS-895 added an optimization to make hflush() much faster by unsynchronizing it. But, we forgot to un-synchronize the deprecated {{sync()}} wrapper method. This makes the HBase WAL really slow on 0.23+ since it doesn't take advantage of HDFS-895 anymore.",1
+"Edit logs are saved on Journal daemon. When NameNode starts, it loads the latest image file and then streams the edit logs from an active Journal daemon.
+Currently we are using http to transfer edit files between two journal daemons/nodes or between a journal daemon and a NameNode. To get edit file from Journal daemon, the NameNode has to download it first and then read it from the disk.
+To avoid the slow start-up time, NameNode should be enhance to read the http data stream and update its in memory name space instead of saving the streamed data on disk first.",1
+{{HftpFileSystem.ByteRangeInputStream}} does not implement {{close}} so it leaks the underlying stream(s).,1
+"Some applications like the TT/JT (pre-2.0) and probably the RM/NM cycle through DistributedFileSystem objects reasonably frequently. So long as they call close() it isn't a big problem, except that currently DFSClient.close() doesn't explicitly close the SocketCache. So unless a full GC runs (causing the references to get finalized), many SocketCaches can get orphaned, each with many open sockets inside. We should fix the close() function to close all cached sockets.",1
+"As noted by Nicholas in HDFS-3359, FileContext doesn't have a close() method, and thus never calls DFSClient.close(). This means that, until finalizers run, DFSClient will hold on to its SocketCache object and potentially have a lot of outstanding sockets/fds held on to.",1
+"Currently, even if the client does not want to verify checksums, the datanode reads them anyway and sends them over the wire. This means that performance improvements like HBase's application-level checksums don't have much benefit when reading through the datanode, since the DN is still causing seeks into the checksum file.
+
+(Credit goes to Dhruba for discovering this - filing on his behalf)",1
+"It is good to avoid running out of space in the middle of writing a batch of edits, because when it happens, we often get partial edits at the end of the log.
+Edit log preallocation can solve this problem (see HADOOP-2330 for a full description of edit log preallocation).
+
+The current pre-allocation code was introduced for performance reasons, not for preventing partial edits.  As a consequence, we sometimes do a write without using pre-allocation.  We should change the pre-allocation code so that it always preallocates at least enough space before writing out the edits.",1
+"HttpFS opens and closes a FileSystem instance against the backend filesystem (typically HDFS) on every request. The FileSystem caching is not used as it does not have expiration/timeout and filesystem instances in there live forever, for long running services like HttpFS this is not a good thing as it would keep connections open to the NN.",1
+"For every FileSystem.get new FileSystem object is getting created even though the UGI object passed has same name. This is creating the lot of FileSystem objects and cached in FileSystem cache instead of using the same cached object .
+
+This is causing the Cache to grow in size causing OOME
+
+This behaviour can be seen in Mapred and Hive components also since they use  FileSystem.get in the described fashion
+
+
+
+
+
+
+",1
+CREATE currently redirects client to a random datanode but not using the client location information.,1
+"If {{LeaseRenewer#closeClient()}} is not called, {{LeaseRenewer}} keeps the reference to a {{DFSClient}} instance in {{dfsclients}} forever. This prevents {{DFSClient}}, {{LeaseRenewer}}, conf, etc. from being garbage collected, leading to memory leak.
+
+{{LeaseRenewer}} should remove the reference after some delay, if a {{DFSClient}} instance no longer has active streams.",1
+"The dfshealth page will place a read lock on the namespace while it does a dns lookup for every DN.  On a multi-thousand node cluster, this often results in 10s+ load time for the health page.  10 concurrent requests were found to cause 7m+ load times during which time write operations blocked.",1
+"HDFS-3721 reworked the way that packets are mirrored through the pipeline in the datanode. This caused two write() calls where there used to be one, which interacts badly with nagling so that there are 40ms bubbles on hflush() calls. We didn't notice this in the tests because the hflush perf test only uses a single datanode.",1
+"In 1.0 release DFSClient uses a thread per file writer. In some use cases (dynamic partions in hive) that use a large number of file writers a large number of threads are created. The file writer thread has the following stack:
+{noformat}
+at java.lang.Thread.sleep(Native Method)
+at org.apache.hadoop.hdfs.DFSClient$LeaseChecker.run(DFSClient.java:1462)
+at java.lang.Thread.run(Thread.java:662)
+{noformat}
+
+This problem has been fixed in later releases. This jira will post a consolidated patch from various jiras that addresses the issue.",1
+"When checkLeases() runs, internalReleaseLease() is called on the expired ones. When it returns true, the lease is already removed, yet it is tried again in checkLease(). This causes unnecessary ERROR messages to be logged. The line doing {{removing.add(p)}} should be removed.
+
+The internalReleaseLease() method logs a detailed message per call, so the extra INFO log message from checkLease() is redundant. 
+
+The error message from removeLease() can be very big and needs to be cut down. When the namenode itself is holding a lot of leases for block recovery, hitting this error is very expensive. In one instance, slow block recovery caused the namenode to hold more than 42K leases. The one log line in this case was over 4 MB.  The dump of data structure should be only enabled in debug mode.",1
+"As pointed out in HDFS-4183, when the lease monitor calls internalReleaseLease(), it acquires the namespace write lock. Inside internalReleaseLease(), if a block recovery is needed, the lease is reassigned to the namenode itself and this is logged & synced in logReassignLease().
+
+Since this is done while the write lock is held, log syncing is blocked. When a large number of leases are expired and blocks are recovered, namenode can slow down.",1
+"When we perform bulk write operations to DFS we observed that block scan is one bottleneck for concurrent disk access.
+
+To see real load on disks, keep single data node and local client flushing data to DFS.
+When we switch off block scanning we have seen >10% improvement. I will update real figures in comment.
+
+Even though I am doing only write operation, implicitly there will be a read operation for each block due to block scanning. Next scan will happen only after 21 days, but once scan will happen after adding the block. This will be the concurrent access to disks.
+Other point to note is that, we will read the block, packet by packet in block scanning as well. We know that, we have to read&scan complete block, so, it may be correct to load complete block once and do checksums verification for that data?
+
+I tried with MemoryMappedBuffers:
+mapped the complete block once in blockScanning and does the checksum verification with that. Seen good improvement in that bulk write scenario.
+
+But we don't have any API to clean the mapped buffer immediately. With my experiment I just used, Cleaner class from sun package. That will not be correct to use in production. So, we have to write JNI call to clean that mmapped buffer.
+I am not sure I missed something here. please correct me If i missed some points.
+
+Thoughts?",1
+"With this fix, logSync() can be called anytime by a thread without affecting the batched syncs metrics. As discussed in HDFS-4186, we will put this feature only to trunk first and let it soak for some time. ",1
+"When many nodes (10) read from the same block simultaneously, we get asymmetric distribution of read load.  This can result in slow block reads when one replica is serving most of the readers and the other replicas are idle.  The busy DN bottlenecks on its network link.
+
+This is especially visible with large block sizes and high replica counts (I reproduced the problem with {{-Ddfs.block.size=4294967296}} and replication 5), but the same behavior happens on a small scale with normal-sized blocks and replication=3.
+
+The root of the problem is in {{NetworkTopology#pseudoSortByDistance}} which explicitly does not try to spread traffic among replicas in a given rack -- it only randomizes usage for off-rack replicas.",1
+"FSNamesystem.getAdditionalBlock() persists all file blocks twice, first in {{dir.removeBlock()}} using OP_ADD, then immediately after that in {{dir.persistBlocks()}} using OP_UPDATE_BLOCKS.
+This should be aggregated in one call to logEdit().",1
+"If multiple threads concurrently execute the following methods will result in the thread fs = createFileSystem (uri, conf) method is called.And create multiple DFSClient, start at the same time LeaseChecker daemon thread, may not be able to use shutdownhook close it after the process, resulting in a memory leak.
+
+{code}
+private FileSystem getInternal(URI uri, Configuration conf, Key key) throws IOException{
+      FileSystem fs = null;
+      synchronized (this) {
+        fs = map.get(key);
+      }
+      if (fs != null) {
+        return fs;
+      }
+      //  this is 
+      fs = createFileSystem(uri, conf);
+      synchronized (this) {  // refetch the lock again
+        FileSystem oldfs = map.get(key);
+        if (oldfs != null) { // a file system is created while lock is releasing
+          fs.close(); // close the new file system
+          return oldfs;  // return the old file system
+        }
+
+        // now insert the new file system into the map
+        if (map.isEmpty() && !clientFinalizer.isAlive()) {
+          Runtime.getRuntime().addShutdownHook(clientFinalizer);
+        }
+        fs.key = key;
+        map.put(key, fs);
+
+        if (conf.getBoolean(""fs.automatic.close"", true)) {
+          toAutoClose.add(key);
+        }
+        return fs;
+      }
+    }
+{code}",1
+"In HDFS-3374, new synchronization in AbstractDelegationTokenSecretManager.ExpiredTokenRemover was added to make sure the ExpiredTokenRemover thread can be interrupted in time. Otherwise TestDelegation fails intermittently because the MiniDFScluster thread could be shut down before tokenRemover thread. 
+However, as Todd pointed out in HDFS-3374, a potential deadlock was introduced by its patch:
+{quote}
+   * FSNamesystem.saveNamespace (holding FSN lock) calls DTSM.saveSecretManagerState (which takes DTSM lock)
+   * ExpiredTokenRemover.run (holding DTSM lock) calls rollMasterKey calls updateCurrentKey calls logUpdateMasterKey which takes FSN lock
+So if there is a concurrent saveNamespace at the same tie as the expired token remover runs, it might make the NN deadlock. {quote}
+
+This JIRA is to track the change of removing the possible deadlock from AbstractDelegationTokenSecretManager. ",1
+"Upon inspection of a fsimage created by a secondary namenode, we've discovered it contains very old tokens. These are probably the ones that were not explicitly canceled.  It may be related to the optimization done to avoid loading fsimage from scratch every time checkpointing.",1
+"In FSNamesystem#commitBlockSynchronization of branch-1, logSync() may be called when the FSNamesystem lock is held. Similar to HDFS-4186, this may cause some performance issue.
+
+The following issue was observed in a cluster that was running a Hive job and was writing to 100,000 temporary files (each task is writing to 1000s of files). When this job is killed, a large number of files are left open for write. Eventually when the lease for open files expires, lease recovery is started for all these files in a very short duration of time. This causes a large number of commitBlockSynchronization where logSync is performed with the FSNamesystem lock held. This overloads the namenode resulting in slowdown.
+
+Since logSync is called right after the synchronization section, we can simply remove the logSync call.",1
+"1.I use programs simulate 3000 users to write 100K small files in HDFS銆傦紙3 datanodes锛?
+2.Found that after a period of time the client and datanodes a lot of timeout errors or errors caused by the socket timeout
+example锛歠ile:log1.txt
+
+3.dump datanode java stack log锛坴iew file:java.log锛?cat java.log |grep BLOCKED|wc -l
+2635
+
+A large number of threads blocking in ReplicaMap, because there used synchronize guarantee thread safety
+{code}
+""DataXceiver for client DFSClient_NONMAPREDUCE_-1528766469_27 at /10.28.171.254:59064 [Receiving block BP-560172827-10.28.171.226-1360119691522:blk_4662142724658079555_330234]"" daemon prio=10 tid=0x00000000428d2800 nid=0x9e32 waiting for monitor entry [0x00007f20ea56d000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+        at org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetImpl.createRbw(FsDatasetImpl.java:670)
+        - waiting to lock <0x00000000f81c05d0> (a org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetImpl)
+        at org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetImpl.createRbw(FsDatasetImpl.java:89)
+        at org.apache.hadoop.hdfs.server.datanode.BlockReceiver.<init>(BlockReceiver.java:159)
+        at org.apache.hadoop.hdfs.server.datanode.DataXceiver.writeBlock(DataXceiver.java:393)
+        at org.apache.hadoop.hdfs.protocol.datatransfer.Receiver.opWriteBlock(Receiver.java:98)
+        at org.apache.hadoop.hdfs.protocol.datatransfer.Receiver.processOp(Receiver.java:66)
+        at org.apache.hadoop.hdfs.server.datanode.DataXceiver.run(DataXceiver.java:219)
+        at java.lang.Thread.run(Thread.java:662)
+{code}
+Linux users resources may be exhausted after running for some time.
+
+HDFS this realization in our test environment can only guarantee stable operation in 800 users.
+
+4. I will be synchronized mechanism is changed to read-write locks, and try to run in the 4500 user does not appear a large number of thread blocks.
+
+5. dump java stack log(view file:java3.log).
+
+cat java3.log |grep BLOCKED|wc -l
+0",1
+"Audit logging need to invoke {{UGI.getCurrentUser}} to log the user performing an operation.  This is a synch'ed method, so audit logging is effectively serializing the completion of concurrent read ops.  Under very heavy load, RPC throughput drops dramatically, the call queue fills with thousands of waiting operations, and clients begin timing out.  Jstack shows all but one call handler blocked on {{UGI.getCurrentUser}}.",1
+"The following code in Datanode.java 
+
+{noformat}
+      try {
+        if (blockScanner != null) {
+          blockScanner.deleteBlocks(toDelete);
+        }
+        data.invalidate(toDelete);
+      } catch(IOException e) {
+        checkDiskError();
+        throw e;
+      }
+{noformat}
+
+causes check disk to happen in case of any errors during invalidate.
+
+We have seen errors like :
+
+2013-03-02 00:08:28,849 WARN org.apache.hadoop.hdfs.server.datanode.DataNode: Unexpected error trying to delete block blk_-2973118207682441648_225738165. BlockInfo not found in volumeMap.
+
+And all such errors trigger check disk, making the clients timeout.",1
+WebHDFS on branch-1 is hitting a Jetty issue for me when it does chunked transfers. This is the same Jetty issue as MAPREDUCE-4399. I have not observed this on trunk.,1
+"The default checkpoint interval is currently set to 40k transactions. That's way too low (I don't know what idiot set it to that.. oh wait, it was me...)
+
+The old default in 1.0 is 64MB. Assuming an average of 100 bytes per txn, we should have the txn-count based interval default to at least 640,000. I'd like to change to 1M as a nice round number.",1
+"If incremental BR is received before first full BR NN will log a line for every block on a DN.
+
+This can impact restart times pretty substantially if the DNs have a lot of blocks, and since the FSNS write lock is held while processing the block report clients will not make any progress.",1
+"In the current implementation, NameNode editlog performs syncs to the persistent storage using the {{FileChannel#force}} Java APIs. This API is documented to be slower compared to an alternative where {{RandomAccessFile}} is opened with ""rws"" flags (synchronous writes). 
+
+We instrumented {{FileChannel#force}} on Windows and it some software/hardware configurations it can perform significantly slower than the 鈥渞ws鈥?alternative.
+
+In terms of the Windows APIs, FileChannel#force internally calls [FlushFileBuffers|http://msdn.microsoft.com/en-us/library/windows/desktop/aa364439(v=vs.85).aspx] while RandomAccessFile (鈥渞ws鈥? opens the file with the [FILE_FLAG_WRITE_THROUGH flag|http://support.microsoft.com/kb/99794]. 
+
+With this Jira I'd like to introduce a flag that provide means to configure NameNode to use synchronous writes. There is a catch though, the behavior of the ""rws"" flags is platform and hardware specific and might not provide the same level of guarantees as {{FileChannel#force}} w.r.t. flushing the on-disk cache. This is an expert level setting, and it should be documented as such.",1
+"Namenode can slow down significantly if a rogue client/job issues massive number of requests that will fail. E.g. permission denied, quota overage, etc.  The major contributing factor in slow down is the long namenode log message, which includes full stack trace.  
+
+Previously similar issues involving safe mode and standby node have been addressed and we can extend it to suppress logging stack traces for configured list of exception classes.",1
+The scope of this issue is to fix multiple file handle leaks observed from recent HDFS test runs.,1
+"HDFS-4274 fixed a file handle leak of the block scanner's verification logs by adding method {{BlockPoolSliceScanner#shutdown}} and guaranteeing that the method gets called for each live {{BlockPoolSliceScanner}} during datanode shutdown.  However, that patch did not consider the case of deleting a block pool via {{ClientDatanodeProtocol#deleteBlockPool}} while the datanode remains running.",1
+"FSNamesystem#startFileInternal calls delete. Delete method releases the write lock, making parts of startFileInternal code unintentionally executed without write lock being held.
+",1
+"While attempting to benchmark an HBase + Hadoop 2.0 setup on SSDs, we found unnecessary seeks into .meta files, each seek was a 7 byte read at the head of the file - this attempts to validate the version #. Since the client is requesting no-checksum, we should not be needing to touch the .meta file at all.
+
+Since the purpose of skip checksum is to also avoid the performance penalty of the extra seek, we should not be seeking into .meta if skip checksum is true",1
+"When users call du or count DFS command, getContentSummary() method is called against namenode. If the directory has many directories and files, it could hold the namesystem lock for a long time. We've seen it taking over 20 seconds. Namenode should not allow regular users to cause extended locking.
+",1
+"BlockScanner scans the block twice, also on restart of datanode scans everything.
+
+Steps:
+1. Write blocks with interval of more than 5 seconds. write new block on completion of scan for written block.
+
+Each time datanode scans new block, it also scans, previous block which is already scanned. 
+
+Now after restart, datanode scans all blocks again.",1
+"In a properly-functioning HDFS system, checkpoints will be triggered either by the secondary NN or standby NN regularly, by default every hour or 1MM outstanding edits transactions, whichever come first. However, in cases where this second node is down for an extended period of time, the number of outstanding transactions can grow so large as to cause a restart to take an inordinately long time.
+
+This JIRA proposes to make the active NN monitor its number of outstanding transactions and perform a proactive local saveNamespace if it grows beyond a configurable threshold. I'm envisioning something like 10x the configured number of transactions which in a properly-functioning cluster would result in a checkpoint from the second NN. Though this would be disruptive to clients while it's taking place, likely for a few minutes, this seems better than the alternative of a subsequent multi-hour restart and should never actually occur in a properly-functioning cluster.",1
+"We've observed an issue which causes fetches of the {{/jmx}} page of the NN to take a long time to load when the standby is in the process of creating a checkpoint.
+
+Even though both creating the checkpoint and gathering the statistics for {{/jmx}} take only the FSNS read lock, the issue is that since the FSNS uses a _fair_ RW lock, a single writer attempting to get the lock will block all threads attempting to get only the read lock for the duration of the checkpoint. This will cause {{/jmx}}, and really any thread only attempting to get the read lock, to block for the duration of the checkpoint, even though they should be able to proceed concurrently with the checkpointing thread.",1
+"While processing an initial block report in the start-up safe mode, namenode can reach the safe block threshold in the middle of processing the report. This is noticed when checkMode() is called and it causes the replication queues to be initialized. 
+
+The safe mode monitor will try to check and leave the safe mode, but can be far behind the write lock, if the initialization takes long (e.g. large number of blocks) and more block reports come in and get queued before it.  In this state (replication queue initialized but still in startup safe mode), block report processing can take a long time. In one instance, 4 block report processing took 13 minutes.
+
+",1
+"In {{Namenode#copyEditLogSegmentsToSharedDir()}} method, we open a collection of EditLogInputStreams to read and apply to shareEditlog. In {{readOpt()}} method, we will open the underlying log file on disk. After applying all the opts, we do not close the collection of streams currently. This lead to a file handle leak on Windows as later we would fail to delete those files.
+
+This happens in TestInitializeSharedEdits test case, where we explicitly called {{Namenode# initializeSharedEdits()}}, where {{copyEditLogSegmentsToSharedDir()}} is used. Later we fail to create new MiniDFSCluster with the following exception.
+{noformat}
+java.io.IOException: Could not fully delete C:\hdc\hadoop-hdfs-project\hadoop-hdfs\target\test\data\dfs\name1
+	at org.apache.hadoop.hdfs.MiniDFSCluster.createNameNodesAndSetConf(MiniDFSCluster.java:759)
+	at org.apache.hadoop.hdfs.MiniDFSCluster.initMiniDFSCluster(MiniDFSCluster.java:644)
+	at org.apache.hadoop.hdfs.MiniDFSCluster.<init>(MiniDFSCluster.java:334)
+	at org.apache.hadoop.hdfs.MiniDFSCluster$Builder.build(MiniDFSCluster.java:316)
+	at org.apache.hadoop.hdfs.server.namenode.ha.TestInitializeSharedEdits.setupCluster(TestInitializeSharedEdits.java:68)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+鈥?{noformat}
+",1
+"DatanodeDescriptor#incBlocksScheduled() will be called for all datanodes of the block on each allocation. But same should be decremented for abandoned blocks.
+
+When one of the datanodes is down and same is allocated for the block along with other live datanodes, then this block will be abandoned, but the scheduled count on other datanodes will consider live datanodes as loaded, but in reality these datanodes may not be loaded.
+
+Anyway this scheduled count will be rolled every 20 mins.
+
+Problem will come if the rate of creation of files is more. Due to increase in the scheduled count, there might be chances of missing local datanode to write to. and some times writes also can fail in small clusters.
+
+So we need to decrement the unnecessary count on abandon block call.",1
+"FileSystem.Statistics is a singleton variable for each FS scheme, each read/write on HDFS would lead to a AutomicLong.getAndAdd(). AutomicLong does not perform well in multi-threads(let's say more than 30 threads). so it may cause  serious performance issue. during our spark test profile, 32 threads read data from HDFS, about 70% cpu time is spent on FileSystem.Statistics.incrementBytesRead().",1
+"When DirectoryScanner doing the scan function, it holding the dataset to diff the block info between memory and disk.But it do a lot of disk operation because it call the file's getlength funciton.
+
+Once the dataset is locked,heartbeat thread and all DataXceiver thread would be blocked.
+
+So,such disk operation should move to the async disk scan
+",1
+"When initial block reports are being processed, checkMode() is called from incrementSafeBlockCount(). This causes the replication queues to be initialized in the middle of processing a block report in the IBR processing mode. If there are many block reports waiting to be processed, SafeModeMonitor won't be able to make name node leave the safe mode soon. It appears that the block report processing speed degrades considerably during this time. 
+
+Update: The main issue can be resolved by config. The other issue of calling getNumLiveDataNodes() for each block in the block report will be addressed in this jira",1
+"NameNode startup progress is supposed to be immutable after startup has completed.  All methods are coded to ignore update attempts after startup has completed.  However, {{StartupProgress#getCounter}} does not implement this correctly.  If a caller attempts to get a counter for a new step that hasn't been seen before, then the method accidentally creates the step.  This allocates additional space in the internal tracking data structures, so ultimately this is a memory leak.",1
+"{{DFSClient#DFSInputStream#blockSeekTo}} may handle {{IOException}} by refetching a new block access token and then reattempting {{fetchBlockAt}}.  However, {{fetchBlockAt}} may then throw its own {{IOException}}.  If this happens, then the method skips calling {{Socket#close}}.  This is likely to manifest as a leak of sockets left in CLOSE_WAIT status.",1
+"We noticed that some times decommission DataNodes takes very long time, even exceeds 100 hours.
+After check the code, I found that in BlockManager:computeReplicationWorkForBlocks(List<List<Block>> blocksToReplicate) it won't replicate blocks which belongs to under construction files, however in BlockManager:isReplicationInProgress(DatanodeDescriptor srcNode), if there  is block need replicate no matter whether it belongs to under construction or not, the decommission progress will continue running.
+That's the reason some time the decommission takes very long time.",1
+"lsof -i TCP:1004 | grep -c CLOSE_WAIT
+18235
+When client request a file's block to DataNode:1004. If request fail because ""java.io.IOException: Got error for OP_READ_BLOCK,Block token is expired."" Occurs  and the TCP socket that regionserver using is not closed.
+
+I think the problem above is in DatanodeInfo blockSeekTo(long target)  of Class DFSInputStream 
+The connection client using is BlockReader: 
+        blockReader = getBlockReader(targetAddr, chosenNode, src, blk,
+            accessToken, offsetIntoBlock, blk.getNumBytes() - offsetIntoBlock,
+            buffersize, verifyChecksum, dfsClient.clientName);
+
+In DFSInputStream.blockSeekTo()-line 533,invoke getBlockReader() which wil generate a peer use newTcpPeer(dnAddr) -line 1107,when BlockReaderFactory.newBlockReader throw IOException,the peer will not be closed which will cause a CLOSE_WAIT connection. 
+In our test,when datanode get a InvalidToken exception in DataXceiver.checkAccess(),it will close the connection.At regionserver side, in RemoteBlockReader2.newBlockReader(),checkSuccess() will throw a InvalidBlockTokenException, DFSInputStream.blockSeekTo() will catch the exception, but the connection is NOT closed, it become CLOSE_WAIT.
+",1
+"Lease renewals unnecessarily hold the write lock which reduces throughput.  Currently the fsn lock doubles as an ""operational lock"" to prevent state transitions.  If the lease manager is thread-safe then a read lock is sufficient.",1
+"Currently every time a block a allocated, the entire list of blocks are written in the editlog in OP_UPDATE_BLOCKS operation. This has n^2 growth issue. The total size of editlog records for a file with large number of blocks could be huge.
+
+The goal of this jira is discuss adding a different editlog record that only records allocation of block and not the entire block list, on every block allocation.",1
